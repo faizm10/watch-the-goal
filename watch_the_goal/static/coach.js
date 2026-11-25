@@ -12,7 +12,7 @@ const CALL_PLURAL = { goal: "goals", save: "saves", near_miss: "near misses", ch
 const KIND = { goal: "goal", save: "shot", near_miss: "shot", chance: "chance", tackle: "tackle" };
 const KINDS = [["goal", "goals"], ["shot", "shots"], ["chance", "chances"], ["tackle", "tackles"]];
 const kindOf = (c) => KIND[callFor(c)?.label] || null;
-const EVENT_COLORS = { audio: "#78aaff", goal: "#00c8ff", lull: "#9aa7a0" };
+const EVENT_COLORS = { audio: "#78aaff", goal: "#00c8ff", attack: "#c58bff", lull: "#9aa7a0" };
 const LIVE_SIDE = 960; // px; both detectors downscale further (640 and 384)
 const GOAL_MARGIN = 0.5; // as vision/players.py: "near" is the goal box widened by half its size
 

@@ -6,6 +6,8 @@ for a 90-minute recording:
 * audio loudness: RMS level in dBFS every ``AUDIO_HOP`` seconds
 * motion: share of pixels that changed between consecutive low-res frames,
   for the whole frame and for each marked goal area
+* pan: how far the camera turned between those frames, from the shift of the
+  background behind the pitch (zero for a camera on a tripod)
 """
 
 from __future__ import annotations
@@ -23,6 +25,8 @@ AUDIO_HOP = 0.25  # seconds per loudness sample
 MOTION_FPS = 5.0
 MOTION_LONG_SIDE = 192
 PIXEL_CHANGE_THRESHOLD = 14  # grey levels (0-255) before a pixel counts as "moving"
+PAN_BAND = (0.12, 0.42)  # rows of the frame used to measure pan: trees, buildings and fences behind the pitch
+PAN_MIN_RESPONSE = 0.15  # weaker matches (a dark or featureless frame) count as no pan
 
 ProgressFn = Callable[[float], None]
 
@@ -35,6 +39,8 @@ class Signals:
     motion_hop: float = 1.0 / MOTION_FPS
     motion: np.ndarray = field(default_factory=lambda: np.zeros(0))
     goal_motion: list[np.ndarray] = field(default_factory=list)
+    # Horizontal camera turn per motion frame, in frame widths; positive turns left.
+    pan: np.ndarray = field(default_factory=lambda: np.zeros(0))
 
 
 def _analysis_size(width: int, height: int) -> tuple[int, int]:
@@ -89,9 +95,13 @@ def audio_loudness(path: str, duration: float, progress: ProgressFn | None = Non
 def motion_series(
     path: str, width: int, height: int, duration: float,
     goal_areas: list[dict] | None = None, progress: ProgressFn | None = None,
-) -> tuple[np.ndarray, list[np.ndarray]]:
+) -> tuple[np.ndarray, list[np.ndarray], np.ndarray]:
+    import cv2
+
     w, h = _analysis_size(width, height)
     masks = [_area_mask(a, w, h) for a in (goal_areas or [])]
+    top, bottom = int(h * PAN_BAND[0]), max(int(h * PAN_BAND[1]), int(h * PAN_BAND[0]) + 8)
+    window = cv2.createHanningWindow((w, bottom - top), cv2.CV_32F)
     proc = subprocess.Popen(
         ["ffmpeg", "-v", "error", "-i", path, "-an",
          "-vf", f"fps={MOTION_FPS},scale={w}:{h}:flags=area,format=gray",
@@ -101,6 +111,7 @@ def motion_series(
     frame_bytes = w * h
     motion: list[float] = []
     goal: list[list[float]] = [[] for _ in masks]
+    pan: list[float] = []
     prev: np.ndarray | None = None
     expected = max(1, int(duration * MOTION_FPS))
     assert proc.stdout is not None
@@ -111,8 +122,12 @@ def motion_series(
         frame = np.frombuffer(raw, dtype=np.uint8).reshape(h, w).astype(np.int16)
         if prev is None:
             changed = np.zeros((h, w), dtype=bool)
+            pan.append(0.0)
         else:
             changed = np.abs(frame - prev) > PIXEL_CHANGE_THRESHOLD
+            (dx, _), response = cv2.phaseCorrelate(prev[top:bottom].astype(np.float32),
+                                                   frame[top:bottom].astype(np.float32), window)
+            pan.append(float(dx) / w if response > PAN_MIN_RESPONSE else 0.0)
         prev = frame
         motion.append(float(changed.mean()))
         for i, mask in enumerate(masks):
@@ -122,7 +137,8 @@ def motion_series(
     _, err = proc.communicate()
     if proc.returncode != 0:
         raise RuntimeError(f"video decode failed: {err.decode(errors='replace').strip()[-300:]}")
-    return np.asarray(motion, dtype=np.float32), [np.asarray(g, dtype=np.float32) for g in goal]
+    return (np.asarray(motion, dtype=np.float32), [np.asarray(g, dtype=np.float32) for g in goal],
+            np.asarray(pan, dtype=np.float32))
 
 
 def extract(
@@ -154,7 +170,7 @@ def extract(
     if has_audio:
         thread = threading.Thread(target=run_audio, daemon=True)
         thread.start()
-    motion, goal = motion_series(path, width, height, duration, goal_areas, report("video"))
+    motion, goal, pan = motion_series(path, width, height, duration, goal_areas, report("video"))
     if thread:
         thread.join()
         if "audio_error" in result:
@@ -164,6 +180,7 @@ def extract(
         audio_db=result.get("audio"),
         motion=motion,
         goal_motion=goal,
+        pan=pan,
     )
 
 
@@ -193,20 +210,21 @@ def save(sig: Signals, path, key: str = "") -> None:
     tmp = f"{path}.tmp.npz"
     np.savez_compressed(tmp, duration=sig.duration, audio_hop=sig.audio_hop, motion_hop=sig.motion_hop,
                         audio=sig.audio_db if sig.audio_db is not None else np.zeros(0, np.float32),
-                        has_audio=sig.audio_db is not None, motion=sig.motion, key=key, **arrays)
+                        has_audio=sig.audio_db is not None, motion=sig.motion, pan=sig.pan, key=key, **arrays)
     os.replace(tmp, path)
 
 
 def load(path, key: str = "") -> Signals | None:
-    """Cached signals, or None if missing, unreadable or extracted with another ``key``."""
+    """Cached signals, or None if missing, unreadable, extracted with another
+    ``key``, or from before pan was measured."""
     try:
         d = np.load(path, allow_pickle=False)
-        if str(d["key"]) != key:
+        if str(d["key"]) != key or "pan" not in d.files:
             return None
         return Signals(
             duration=float(d["duration"]), audio_hop=float(d["audio_hop"]), motion_hop=float(d["motion_hop"]),
             audio_db=d["audio"] if bool(d["has_audio"]) else None, motion=d["motion"],
-            goal_motion=[d[k] for k in sorted(d.files) if k.startswith("goal")],
+            goal_motion=[d[k] for k in sorted(d.files) if k.startswith("goal")], pan=d["pan"],
         )
     except (OSError, KeyError, ValueError):
         return None

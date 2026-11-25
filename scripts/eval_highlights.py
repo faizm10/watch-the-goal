@@ -73,13 +73,14 @@ def cached_signals(labels: dict, info, out: Path) -> tuple[signals.Signals, floa
         d = np.load(f, allow_pickle=False)
         goal = [d[k] for k in sorted(d.files) if k.startswith("goal")]
         audio = d["audio"] if d["audio"].size else None
+        pan = d["pan"] if "pan" in d.files else np.zeros(0)
         return signals.Signals(duration=float(d["duration"]), audio_db=audio, motion=d["motion"],
-                               goal_motion=goal), float(d["seconds"])
+                               goal_motion=goal, pan=pan), float(d["seconds"])
     t0 = time.time()
     sig = signals.extract(info.path, info.width, info.height, info.duration, info.has_audio, labels["areas"])
     seconds = time.time() - t0
     f.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(f, duration=sig.duration, seconds=seconds, motion=sig.motion,
+    np.savez(f, duration=sig.duration, seconds=seconds, motion=sig.motion, pan=sig.pan,
              audio=sig.audio_db if sig.audio_db is not None else np.zeros(0),
              **{f"goal{i}": g for i, g in enumerate(sig.goal_motion)})
     return sig, seconds

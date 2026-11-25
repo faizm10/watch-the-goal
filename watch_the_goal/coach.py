@@ -43,6 +43,7 @@ TAG_ROLL = {"tackle": (6.0, 4.0)}
 AUDIO_WINDOW = (-4.0, 8.0)
 GOAL_WINDOW = (-4.0, 3.0)
 LULL_WINDOW = (-2.0, 14.0)  # same as the detector's "supporting stoppage" rule
+ATTACK_WINDOW = (-6.0, 8.0)  # an attack ending this close counts as the same moment
 LOUD_DB = 3.0  # "loud seconds" counts time at least this far above the local level
 GOAL_RUN_SECONDS = 1.0  # goal-box motion must last this long (as in detect.goal_events)
 
@@ -89,6 +90,7 @@ class Readout:
     goal_ratios: list[float] = field(default_factory=list)  # per marked area
     lull: bool = False
     flow_after: float | None = None  # motion after / before (lower = play stopped)
+    attack: str | None = None  # an auto-panning camera followed play to one end
 
     @property
     def goal_ratio(self) -> float | None:
@@ -105,7 +107,7 @@ class Readout:
         return {"t": round(self.t, 2), "audio_db": r(self.audio_db, 1), "audio_peak_db": r(self.audio_peak_db, 1),
                 "audio_needs_db": r(self.audio_needs_db, 1), "audio_ratio": r(self.audio_ratio),
                 "loud_seconds": round(self.loud_seconds, 2), "goal_ratios": [round(g, 2) for g in self.goal_ratios],
-                "lull": self.lull, "flow_after": r(self.flow_after)}
+                "lull": self.lull, "flow_after": r(self.flow_after), "attack": self.attack}
 
 
 class Evidence:
@@ -120,6 +122,7 @@ class Evidence:
         self.flow = detect.flow(sig, self.n) if self.n >= 4 else None
         self.labels = [detect.area_label(a, i) for i, a in enumerate(self.goal_areas)][: len(self.goals)]
         self._lulls = detect.lull_events(sig, self.n) if self.n >= 4 else []
+        self._attacks = detect.attack_events(sig, self.n) if self.n >= 4 else []
 
     # ----------------------------------------------------------- thresholds
 
@@ -164,6 +167,7 @@ class Evidence:
         out.goal_ratios = [max(0.0, _best_run(self._goal_ratio(i, tuning)[a:b], k)) if b > a else 0.0
                            for i in range(len(self.goals))]
         out.lull = any(t + LULL_WINDOW[0] <= e.t <= t + LULL_WINDOW[1] for e in self._lulls)
+        out.attack = next((e.reason for e in self._attacks if t + ATTACK_WINDOW[0] <= e.t <= t + ATTACK_WINDOW[1]), None)
         if self.flow is not None:
             i = int(t / STEP)
             before = self.flow[max(0, i - int(8 / STEP)):i + 1]
@@ -191,6 +195,8 @@ class Evidence:
         else:
             for label, ratio in zip(self.labels, r.goal_ratios):
                 lines.append(f"Movement at the {label} reached {ratio:.0%} of what counts.")
+        if r.attack:
+            lines.append(f"Before that, {r.attack}.")
         if self.flow is not None:
             lines.append("Play stopped afterwards." if r.lull else "Play didn't clearly stop afterwards.")
 
@@ -242,7 +248,7 @@ class Evidence:
             out["flow"] = np.round(self.flow / typical, 2).tolist()
         audio, goals, lulls = detect.all_events(self.sig, self.goal_areas, tuning)
         out["events"] = [{"kind": e.kind, "t": round(e.t, 2), "end": round(e.end, 2) if e.end else None,
-                          "reason": e.reason} for e in sorted(audio + goals + lulls, key=lambda e: e.t)]
+                          "reason": e.reason} for e in sorted(audio + goals + lulls + self._attacks, key=lambda e: e.t)]
         return out
 
 

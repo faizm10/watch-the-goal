@@ -151,6 +151,7 @@ class App:
             "seconds": round(time.time() - t0, 1),
             "used": [k for k, on in (("audio", sig.audio_db is not None),
                                      ("motion", True),
+                                     ("camera pan", detect.camera_offset(sig, int(sig.duration / detect.STEP)) is not None),
                                      ("goal areas", bool(src["goal_areas"])),
                                      (f"players ({detector})", detector != "none")) if on],
             "notes": notes,

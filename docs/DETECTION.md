@@ -26,6 +26,7 @@ The code:
 | Loudness | mono 8 kHz audio, RMS level in dBFS | every 0.25 s |
 | Motion | frames scaled to 192 px on the long side, greyscale; share of pixels whose brightness changed by more than 14 levels since the previous frame | 5 per second |
 | Goal-area motion | the same, but only inside each goal box you drew | 5 per second |
+| Camera pan | horizontal shift of the background behind the pitch (the band 12–42% down the frame) between those frames, by phase correlation; weak matches count as no pan | 5 per second |
 
 Audio and video are decoded in parallel, streamed, and never held in memory
 whole. A 51-minute 1080p phone recording takes about 45 s on an M-series Mac.
@@ -44,12 +45,25 @@ park are each judged against themselves.
 - **Play stopped after a burst**: average motion over the next 10 s drops below
   60% of the previous 8 s, after a busier-than-usual spell. Goals are usually
   followed by a restart, so this mostly *supports* other evidence.
+- **Camera followed play to one end**: auto-panning cameras (Veo, Trace,
+  Pixellot) follow the ball, so where the camera points says where play is.
+  Summing the pan gives the camera's direction. Over the surrounding 3
+  minutes its sweep runs from the 5th to the 95th percentile, and the
+  middle of that is 0. The camera counts as at an end beyond 75% of the way
+  to either side, held for at least 3 s while play is busy (motion at least
+  0.9× the median). A camera that sweeps less than 0.15 frame widths (a
+  phone or tripod) never triggers this.
 
 ## 3. Moments
 
 1. Crowd noise and goal-box motion start moments. A play stoppage only adds
-   to one, except in footage with no audio and no goal boxes, where it is the
-   only evidence left.
+   to one, except in footage with no audio, no goal boxes and a fixed camera,
+   where it is the only evidence left. A spell at one end joins the moment
+   it led to if it ended between 4 s before and 14 s after that moment's
+   noise. After a goal the camera often stays at that end through the
+   celebration. On its own, a spell at one end starts a moment only if play
+   stopped right after (a shot out, a save, a goal). Play reaches a final
+   third every minute or so, and most of those spells fizzle out.
 2. Events within 6 s of each other are one moment.
 3. The moment's time ("the finish") is the goal-box motion if there was any,
    otherwise half a second before the loudest reaction.
@@ -217,6 +231,29 @@ confirmed goal is found but its clip starts 4.5 s after the attack began;
 with the goal marked, player detectors trim the indoor recording's
 suggestions from 24 to 15 and lift its one save from #19 to #2; AI review
 puts the goal and the save at #1 but mislabels the goal.
+
+### The camera-pan cue on two Veo matches
+
+Two full matches (about 56 and 58 minutes). The labels are the calls
+made in the app: 2 goals, 1 chance and 2 tackles in one match, and 1 goal
+in the other, found by watching the stoppages. Ranks are among the shown
+suggestions, before and after the camera-pan cue:
+
+| | Before | After |
+| --- | --- | --- |
+| Match 1: goal 46:50 | #3 | #2 |
+| Match 1: goal 56:12 | #7 | #4 |
+| Match 1: chance 51:35 | #1 | #1 |
+| Match 1: tackles 15:16, 42:50 | #5, #9 | #3, #5 |
+| Match 1: false alarm 4:53 | #2 | #10 |
+| Match 2: goal 35:31 | #1 | #1 |
+| Match 2: suggestions | 6 | 35 |
+
+In match 1 all five labelled highlights are now the top five. Match 2 was
+filmed at night with a quiet microphone, so crowd noise found only 6
+moments. The camera's movement adds the attacks that ended in a stoppage.
+Spot checks show a mix of shots, chances and ordinary build-up that ran
+out, so tag them as you go.
 
 ## 8. Where to improve it
 
