@@ -218,28 +218,29 @@ function renderTimeline() {
   el.innerHTML = data.sources.map((s) => {
     const d = s.info.duration;
     const blocks = clipsFor(s.id).map((c) => {
-      const left = (c.start / d) * 100;
-      const width = (clipLen(c) / d) * 100;
+      const left = pct(s, c.start);
+      const width = spanPct(s, clipLen(c));
       const tip = `${fmt(c.start)}–${fmt(c.end)} · ${c.reasons.join("; ")}`;
       return `<button aria-label="${esc(s.name)} · ${fmt(c.start)} to ${fmt(c.end)}" class="block ${c.status} ${c.id === sel.clipId ? "sel" : ""}" data-clip="${c.id}" title="${esc(tip)}" style="left:${left}%;width:${width}%"></button>`;
     });
-    const ruler = Array.from({length: 5}, (_, i) => `<span>${fmt(d * i / 4, false)}</span>`).join("");
     return `<div class="track ${s.id === sel.sourceId ? "active" : ""}" data-src="${s.id}">
       <div class="track-label" title="${esc(s.name)}">${esc(s.name)}<br><span class="d">${fmt(d, false)}</span></div>
       <div class="track-lane">
-        <div class="track-ruler" aria-hidden="true">${ruler}</div>
+        <div class="track-ruler" aria-hidden="true">${rulerHtml(s)}</div>
         <div class="track-bar" data-src="${s.id}"><canvas></canvas>${s.kind === "long" ? offPlay(s) : ""}${blocks.join("")}${callFlags(s)}<div class="ph" hidden></div></div>
+        ${overviewHtml(s)}
       </div>
     </div>`;
   }).join("");
   if (focusedClip) el.querySelector(`[data-clip="${focusedClip}"]`)?.focus({preventScroll: true});
   for (const s of data.sources) {
     const canvas = el.querySelector(`.track-bar[data-src="${s.id}"] canvas`);
-    drawActivity(canvas, s, 0, s.info.duration);
+    drawActivity(canvas, s, ...viewOf(s));
     drawEvents(canvas, s);
     loadActivity(s);
     loadEvidence(s);
   }
+  renderNav();
   updatePlayheads();
 }
 
@@ -582,6 +583,7 @@ function tick() {
       stopAt = null;
     }
   }
+  followPlayhead();
   updatePlayheads();
   requestAnimationFrame(tick);
 }
@@ -592,8 +594,9 @@ function updatePlayheads() {
     const ph = bar.querySelector(".ph");
     const s = srcById(bar.dataset.src);
     if (!ph || !s) return;
-    ph.hidden = s.id !== loaded.sourceId;
-    ph.style.left = (t / s.info.duration) * 100 + "%";
+    const p = pct(s, t);
+    ph.hidden = s.id !== loaded.sourceId || p < 0 || p > 100;
+    ph.style.left = p + "%";
   });
   const zph = $("zoom-ph");
   if (zph && zoomWin) {
@@ -1123,9 +1126,7 @@ function wire() {
     const bar = e.target.closest(".track-bar");
     if (!bar) return;
     const s = srcById(bar.dataset.src);
-    const r = bar.getBoundingClientRect();
-    const t = ((e.clientX - r.left) / r.width) * s.info.duration;
-    selectSource(s.id, t);
+    selectSource(s.id, timeAt(s, bar, e.clientX));
   });
 
   $("editor").addEventListener("click", (e) => {
@@ -1250,6 +1251,12 @@ function wire() {
     else if (k === "n" || k === "N") newClipHere();
     else if (k === "g" || k === "G") goalHere();
     else if (k === "d" || k === "D") setLive(!live.on);
+    else if (k === ",") stepFrame(-1);
+    else if (k === ".") stepFrame(1);
+    else if (k === "<") stepSpeed(-1);
+    else if (k === ">") stepSpeed(1);
+    else if (k === "=" || k === "+") { const s = focusSource(); if (s) zoomBy(s, 0.5); }
+    else if (k === "-") { const s = focusSource(); if (s) zoomBy(s, 2); }
     else if (/^[0-5]$/.test(k)) callKey(k);
     else if (k === "ArrowLeft" && e.shiftKey) { e.preventDefault(); nudge("start", -5); }
     else if (k === "ArrowRight" && e.shiftKey) { e.preventDefault(); nudge("end", 5); }
@@ -1260,6 +1267,7 @@ function wire() {
   setupGoalDrawing();
   wireCoach();
   wireMatch();
+  wireTimelineNav();
 }
 
 wire();

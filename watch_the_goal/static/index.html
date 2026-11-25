@@ -50,7 +50,13 @@
         </div>
         <div class="transport">
           <button id="play-btn" class="btn icon" aria-label="Play or pause" data-help="Play or pause the preview (Space).">▶</button>
+          <button id="skip-back" class="btn small" data-help="Back 10 seconds. Arrow keys move 2 s, comma and full stop one frame.">−10s</button>
           <span id="time-readout" class="mono">0:00.0</span>
+          <button id="skip-fwd" class="btn small" data-help="Forward 10 seconds.">+10s</button>
+          <select id="speed" aria-label="Playback speed" data-help="Playback speed (&lt; and &gt;). Watch a whole match quickly at 2× or 4×.">
+            <option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option>
+            <option value="2">2×</option><option value="4">4×</option>
+          </select>
           <button class="btn small" id="undo-btn" disabled data-help="Undo the last trim, reel reorder or auto-fill (Ctrl/⌘ Z).">Undo</button>
           <span id="transport-note" class="muted"></span>
           <span class="spacer"></span>
@@ -66,11 +72,18 @@
         <div class="timeline-head">
           <h2>Timeline</h2>
           <span class="legend"><i class="sw candidate"></i>suggested <i class="sw kept"></i>kept <i class="sw skipped"></i>skipped <i class="tick-sw"></i>heard/saw <i class="flag-sw"></i>your call</span>
+          <span class="tl-zoom" role="group" aria-label="Timeline zoom">
+            <button id="zoom-out" class="btn small" data-help="Zoom out (−)." disabled>−</button>
+            <span id="zoom-label" class="muted mono"></span>
+            <button id="zoom-in" class="btn small" data-help="Zoom in around the playhead (+). Ctrl/⌘ + scroll zooms where you point; Shift + scroll pans.">+</button>
+            <button id="zoom-fit" class="btn small ghost" data-help="Show the whole recording." disabled>Fit</button>
+          </span>
           <span class="spacer"></span>
           <label class="muted toggle" title="J/L visits suggestions strongest first (after AI review: likely goals first)"><input type="checkbox" id="best-first"> strongest first</label>
           <span class="muted keys">J/L next · K keep · X skip · 1–5 tag · 0 not one · D live</span>
         </div>
         <div id="timeline" class="timeline"></div>
+        <div id="scrub-tip" class="scrub-tip" hidden aria-hidden="true"><canvas width="160" height="90"></canvas><img alt="" width="160" height="90" hidden><span class="t"></span></div>
       </div>
     </section>
 
@@ -169,6 +182,7 @@
   <script src="/static/composition.js"></script>
   <script src="/static/coach.js"></script>
   <script src="/static/match.js"></script>
+  <script src="/static/timeline.js"></script>
   <script src="/static/app.js"></script>
   <script src="/static/tooltips.js"></script>
 </body>
