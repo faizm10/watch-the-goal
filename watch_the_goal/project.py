@@ -53,7 +53,7 @@ class Project:
         self.clips: dict[str, dict] = {}
         self.order: list[str] = []
         self.exports: list[dict] = []
-        self.settings = {"template": "plain", "title": "", "layout": "auto", "pre_roll": PRE_ROLL, "post_roll": POST_ROLL,
+        self.settings = {"template": "plain", "title": "", "end_card": "", "layout": "auto", "pre_roll": PRE_ROLL, "post_roll": POST_ROLL,
                          "detector": "none", "ai_review": dict(REVIEW_DEFAULTS)}
         self.history = deque(maxlen=60)
         self.load()
@@ -100,7 +100,7 @@ class Project:
         with self.lock:
             self.sources, self.clips, self.order, self.exports = [], {}, [], []
             self.history.clear()
-            self.settings.update(template="plain", title="")
+            self.settings.update(template="plain", title="", end_card="")
             self.save()
 
     # ------------------------------------------------------------- sources

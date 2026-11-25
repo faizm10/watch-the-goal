@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-from . import recap, review, signals
+from . import recap, review, signals, writer
 from .app import App
 from .export import SIZES, ExportError
 from .media import MediaError, extract_frame
@@ -21,7 +21,8 @@ from .project import ProjectError
 from .vision.models import ModelUnavailable
 
 STATIC = Path(__file__).parent / "static"
-USER_ERRORS = (MediaError, ExportError, ProjectError, ModelUnavailable, review.ReviewError, ValueError, KeyError)
+USER_ERRORS = (MediaError, ExportError, ProjectError, ModelUnavailable, review.ReviewError,
+               writer.WriterError, ValueError, KeyError)
 MAX_LIVE_FRAME = 8 << 20  # bytes; a 1080p JPEG is well under 1 MB
 
 
@@ -112,6 +113,7 @@ class Handler(BaseHTTPRequestHandler):
         data["can_undo"] = bool(self.app.project.history)
         data["jobs"] = self.app.jobs.active()
         data["workspace"] = str(self.app.project.workspace)
+        data["writers"] = self.app.writers()
         return data
 
     # ------------------------------------------------------------- routing
@@ -183,7 +185,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json({"peaks": peaks})
             if path == "/api/artwork":
                 kind = query["kind"][0]
-                if kind not in ("title", "board"):
+                if kind not in recap.KINDS:
                     raise ValueError("Unknown artwork")
                 text = query["text"][0]
                 if len(text) > 128:
@@ -277,16 +279,24 @@ class Handler(BaseHTTPRequestHandler):
                 template = body.get("template")
                 if template not in ("recap", "plain"):
                     raise ValueError("Unknown template")
-                title = recap.clean_text(body.get("title", ""), 64)
+                title = recap.clean_text(body.get("title", ""), writer.TITLE_LIMIT)
+                end = recap.clean_text(body.get("end", p.settings.get("end_card", "")), writer.END_LIMIT)
                 with p.lock:
                     updates = [(p.source(sid), {k: recap.clean_text(row.get(k, ""), limit)
                                 for k, limit in (("home", 28), ("away", 28), ("score", 12))})
                                for sid, row in body.get("sources", {}).items()]
+                    captions = [(p.clip(cid), recap.clean_text(text, writer.CAPTION_LIMIT))
+                                for cid, text in body.get("captions", {}).items()]
                     for src, board in updates:
                         src["scoreboard"] = board
-                    p.settings.update(template=template, title=title)
+                    for clip, text in captions:
+                        clip["caption"] = text
+                    p.settings.update(template=template, title=title, end_card=end)
                     p.save()
                 return self.send_json({"ok": True})
+            if path == "/api/reel/draft":
+                return self.send_json(self.app.draft_text(str(body.get("provider", "detection")),
+                                                          str(body.get("key") or ""), str(body.get("model") or "")))
             if path == "/api/reel/auto":
                 target = body.get("target")
                 if target is not None and (isinstance(target, bool) or not isinstance(target, (int, float))

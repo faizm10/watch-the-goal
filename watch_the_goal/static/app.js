@@ -450,7 +450,8 @@ function layoutZoom(c, s) {
 function renderReel() {
   if (dragging) return;
   const items = reel();
-  const total = items.reduce((a, c) => a + clipLen(c), items.length && data.settings.template === "recap" && data.settings.title ? 2 : 0);
+  const recap = items.length && data.settings.template === "recap";
+  const total = items.reduce((a, c) => a + clipLen(c), (recap && data.settings.title ? 2 : 0) + (recap && data.settings.end_card ? 3 : 0));
   const scale = Math.max(90, total * 1.1);
   let note;
   if (!items.length) note = "Keep clips to build the reel. Aim for 30–60 seconds.";
@@ -472,7 +473,7 @@ function renderReel() {
       return `<li class="reel-item ${c.id === sel.clipId ? "sel" : ""} ${c.id === playingId ? "playing" : ""}" draggable="true" data-clip="${c.id}">
         <span class="n" title="Drag to reorder">${i + 1}</span>
         <img src="${frameUrl(s.id, Math.min(c.anchor ?? c.start + clipLen(c) / 2, s.info.duration - 0.1), 160)}" alt="" loading="lazy">
-        <div class="t"><div>${kindOf(c) ? `<span class="kind" data-kind="${kindOf(c)}">${kindOf(c)}</span> ` : ""}${esc(s.name)}</div><div class="s">${fmt(c.start, false)}–${fmt(c.end, false)} · ${clipLen(c).toFixed(1)}s</div></div>
+        <div class="t"><div>${kindOf(c) ? `<span class="kind" data-kind="${kindOf(c)}">${kindOf(c)}</span> ` : ""}${esc(s.name)}</div><div class="s">${fmt(c.start, false)}–${fmt(c.end, false)} · ${clipLen(c).toFixed(1)}s</div>${recap && c.caption ? `<div class="cap">“${esc(c.caption)}”</div>` : ""}</div>
         <div class="mv"><button data-move="-1" aria-label="Move up" data-help="Move this clip earlier in the reel.">▲</button><button data-move="1" aria-label="Move down" data-help="Move this clip later in the reel.">▼</button></div>
       </li>`;
     }).join("")
@@ -560,7 +561,17 @@ function playReelAt(index) {
   stopAt = null;
   reelQueue.intro = false;
   const ids = reelQueue.ids;
-  if (index >= ids.length) { stopReel(); return; }
+  if (index >= ids.length) {
+    if (data.settings.template !== "recap" || !data.settings.end_card || reelQueue.outro) { stopReel(); return; }
+    // Hold the end card on the last clip's canvas, as the export does.
+    const queue = reelQueue;
+    player.pause();
+    stopAt = null;
+    queue.outro = true;
+    $("transport-note").textContent = "Reel preview · end card";
+    queue.timer = setTimeout(() => { if (reelQueue === queue) stopReel(); }, 3000);
+    return;
+  }
   reelQueue.index = index;
   const c = clipById(ids[index]);
   if (!c) { playReelAt(index + 1); return; }
@@ -998,6 +1009,8 @@ function wire() {
     } catch (err) { toast(err.message, true); }
   };
   $("details-btn").onclick = openRecap;
+  $("writer-provider").onchange = writerChanged;
+  $("writer-btn").onclick = writeRecap;
   $("recap-cancel").onclick = () => $("recap-dialog").close();
   $("recap-dialog").onclose = () => { $("template-select").value = data.settings.template; };
   $("recap-form").onsubmit = async e => {
@@ -1007,7 +1020,9 @@ function wire() {
       sources[row.dataset.sid] = Object.fromEntries([...row.querySelectorAll("input")].map(input => [input.name, input.value]));
     }
     try {
-      await api("POST", "/api/recap", { template: "recap", title: $("recap-title").value, sources });
+      const captions = Object.fromEntries([...$("recap-captions").querySelectorAll("[data-clip]")]
+        .map(row => [row.dataset.clip, row.querySelector("input").value]));
+      await api("POST", "/api/recap", { template: "recap", title: $("recap-title").value, end: $("recap-end").value, sources, captions });
       await refresh(true);
       $("recap-dialog").close();
     } catch (err) { toast(err.message, true); }
