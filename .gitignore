@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+dist/
+build/
+
+# Media: never commit footage or reels
+*.mp4
+*.mov
+*.MOV
+*.MP4
+*.m4v
+*.mkv
+*.webm
+*.avi
+demo/footage/
+wtg-workspace/
+exports/
+
+.DS_Store
+.gstack/
+
+# Local real-footage demo (people in it; never commit)
+demo/real/
+
+# Benchmark output (overlays, caches, results from local footage)
+bench/
