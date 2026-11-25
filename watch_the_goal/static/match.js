@@ -15,7 +15,7 @@ function offPlay(s) {
   const gaps = [[0, p.start], [p.end, d]];
   if (p.breakStart != null && p.breakEnd != null) gaps.push([p.breakStart, p.breakEnd]);
   return gaps.filter(([a, b]) => b - a > 0.5).map(([a, b]) =>
-    `<div class="offplay" style="left:${(a / d) * 100}%;width:${((b - a) / d) * 100}%" aria-hidden="true"></div>`).join("");
+    `<div class="offplay" style="left:${pct(s, a)}%;width:${spanPct(s, b - a)}%" aria-hidden="true"></div>`).join("");
 }
 
 function playSummary(s) {

@@ -110,6 +110,9 @@ It checks the mechanics, not real-world quality.
    | `G` | goal here: tag a goal at the playhead |
    | `D` | live detection on / off |
    | `Space` | play / pause |
+   | `←` / `→`, `,` / `.` | back / forward 2 s; one frame back / forward |
+   | `<` / `>` | slower / faster (0.5× to 4×) |
+   | `+` / `-` | zoom the timeline in / out around the playhead |
    | `Ctrl/⌘ Z` | undo a trim, reel reorder or auto-fill |
 
 5. **See what it sees, and correct it.** **◉ Live detection** (`D`) overlays
@@ -133,6 +136,13 @@ It checks the mechanics, not real-world quality.
    to agree with you. Candidates that resemble a call move up or down and
    say so ("like your goal at 46:50"). Calls download as `labels.json` for
    `scripts/eval_highlights.py`. Details: [docs/DETECTION.md](docs/DETECTION.md#6-your-calls).
+
+   To just watch, drag along a recording's track to scrub (a frame preview
+   follows the pointer), use **−10s** / **+10s** and the speed menu, and
+   zoom the timeline with **+** / **−**, Ctrl/⌘ + scroll or a trackpad
+   pinch. While zoomed, the strip under the track shows which part is on
+   screen; drag it, or Shift + scroll, to move along. The view follows the
+   playhead as it plays.
 6. **Arrange.** The Reel panel lists kept clips in play order. Drag them, or
    use ▲▼. The meter tracks the 30 to 60 second sweet spot. **Preview reel**
    plays everything back to back. In a hurry? **Auto-fill from suggestions**

@@ -42,16 +42,16 @@ function drawEvents(canvas, s) {
   const dpr = window.devicePixelRatio || 1;
   const ctx = canvas.getContext("2d");
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const w = canvas.clientWidth, d = s.info.duration;
+  const w = canvas.clientWidth;
   for (const e of ev.events) {
     ctx.fillStyle = EVENT_COLORS[e.kind] || "#fff";
-    ctx.fillRect(Math.round((e.t / d) * w), 0, 1.5, e.kind === "lull" ? 4 : 8);
+    ctx.fillRect(Math.round((pct(s, e.t) / 100) * w), 0, 1.5, e.kind === "lull" ? 4 : 8);
   }
 }
 
 function callFlags(s) {
   return (s.calls || []).map((c) => `<button class="call-flag ${c.label}" data-call-id="${c.id}" data-src="${s.id}"
-    style="left:${(c.t / s.info.duration) * 100}%" title="Your call: ${CALL_TEXT[c.label]} at ${fmt(c.t)}"
+    style="left:${pct(s, c.t)}%" title="Your call: ${CALL_TEXT[c.label]} at ${fmt(c.t)}"
     aria-label="Your call: ${CALL_TEXT[c.label]} at ${fmt(c.t)}"></button>`).join("");
 }
 
