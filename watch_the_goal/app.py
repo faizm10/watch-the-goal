@@ -10,12 +10,12 @@ from pathlib import Path
 
 import numpy as np
 
-from . import coach, detect, pipeline, review, signals
+from . import coach, detect, pipeline, review, signals, writer
 from .export import ExportClip, export_reel
 from .jobs import Job, JobRunner
 from .media import VIDEO_EXTENSIONS, MediaError, make_preview_proxy, probe
 from .project import Project, ProjectError
-from .recap import board_text
+from .recap import FADE_SECONDS, board_text
 
 
 def safe_name(name: str) -> str:
@@ -30,6 +30,7 @@ class App:
         self._evidence: dict[str, tuple[tuple, coach.Evidence]] = {}
         self._live_lock = threading.Lock()  # one OpenCV net, one frame at a time
         self._live: tuple[str, object] | None = None
+        self._keys: dict[str, str] = {}  # provider -> API key pasted this session; never written to disk
 
     # -------------------------------------------------------------- import
 
@@ -404,12 +405,30 @@ class App:
         f = self.project.workspace / "cache" / f"{source_id}-activity.json"
         return json.loads(f.read_text()) if f.exists() else {}
 
+    # ---------------------------------------------------------- reel text
+
+    def writers(self) -> list[dict]:
+        """Who can write the reel text, for the recap dialog. Keys themselves never leave the server."""
+        return [{"id": "detection", "label": "tags and detection", "ready": True}] + [
+            {"id": pid, "label": label, "model": model, "env": env[0],
+             "ready": pid in self._keys or writer.has_key(pid)}
+            for pid, (label, model, env, _) in writer.PROVIDERS.items()]
+
+    def draft_text(self, provider: str, key: str = "", model: str = "") -> dict:
+        """A proposal for the title, captions and end card. Saving it is a separate step."""
+        if key and provider in writer.PROVIDERS:
+            self._keys[provider] = key.strip()
+        with self.project.lock:
+            facts = writer.facts(self.project)
+        return writer.draft(facts, provider, self._keys.get(provider), model.strip() or None)
+
     # -------------------------------------------------------------- export
 
     def export(self, layout: str = "auto") -> Job:
         with self.project.lock:
             recap = self.project.settings.get("template") == "recap"
             title = self.project.settings.get("title", "") if recap else ""
+            end = self.project.settings.get("end_card", "") if recap else ""
             reel = self.project.reel()
             sources = {s["id"]: s for s in self.project.sources}
             clips = []
@@ -419,13 +438,15 @@ class App:
                     path=s["path"], start=c["start"], end=c["end"],
                     has_audio=s["info"]["has_audio"], width=s["info"]["width"], height=s["info"]["height"],
                     crop=c.get("crop"), board=board_text(s.get("scoreboard", {})) if recap else "",
+                    caption=c.get("caption", "") if recap else "", fade=FADE_SECONDS if recap else 0.0,
                     label=f"clip {i + 1} ({s['name']} {fmt_time(c['start'])})",
                 ))
         out = self.project.workspace / "exports" / f"reel-{time.time_ns()}.mp4"
 
         def run(job: Job) -> dict:
             result = export_reel(clips, out, layout, self.project.workspace / "cache",
-                                 progress=lambda f, m: job.update(f, m), title=title)
+                                 progress=lambda f, m: job.update(f, m), title=title, end=end,
+                                 fade=FADE_SECONDS if recap else 0.0)
             result["name"] = out.name
             result["created"] = time.time()
             result["layout"] = layout

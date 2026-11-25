@@ -18,6 +18,10 @@ classifiers = [
   "Topic :: Multimedia :: Video",
 ]
 
+[project.optional-dependencies]
+# Optional: let Claude, OpenAI or Gemini write reel captions (text only; see writer.py).
+ai = ["anthropic>=2.14", "openai>=3.59", "google-genai>=2.33"]
+
 [project.scripts]
 watch-the-goal = "watch_the_goal.cli:main"
 

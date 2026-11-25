@@ -104,7 +104,7 @@
         <div class="row"><label for="template-select" class="muted">Template</label>
           <select id="template-select"><option value="plain">Original footage</option><option value="recap">Match recap</option></select>
         </div>
-        <button class="btn small" id="details-btn" data-help="Set the opening title and per-recording scores." hidden>Edit title &amp; scoreboards</button>
+        <button class="btn small" id="details-btn" data-help="Set the opening title, a caption on each clip, the end card and per-recording scores. Can draft the words for you." hidden>Edit titles, captions &amp; scores</button>
         <div class="row">
           <label for="layout-select" class="muted">Shape</label>
           <select id="layout-select">
@@ -129,6 +129,19 @@
       <label>Opening title <input id="recap-title" maxlength="64" placeholder="Optional · 2-second card"></label>
       <p class="muted">Each recording has its own scoreboard. Leave fields blank to omit them.</p>
       <div id="recap-sources"></div>
+      <h4>Captions</h4>
+      <p class="muted">A line on each kept clip slides in along the bottom; clips fade through black between them. Leave a line blank for none.</p>
+      <div id="recap-captions"></div>
+      <label>End card <input id="recap-end" maxlength="64" placeholder="Optional · 3-second card, e.g. Full time · 3–2"></label>
+      <div class="writer">
+        <div class="writer-row">
+          <label>Write them with <select id="writer-provider"></select></label>
+          <label id="writer-key-row" hidden>API key <input id="writer-key" type="password" autocomplete="off" placeholder="Paste a key"></label>
+          <label id="writer-model-row" hidden>Model <input id="writer-model"></label>
+          <button type="button" class="btn" id="writer-btn">Write</button>
+        </div>
+        <p class="muted" id="writer-note"></p>
+      </div>
       <div class="row"><span class="spacer"></span><button type="button" class="btn" id="recap-cancel">Cancel</button>
       <button class="btn primary">Save recap</button></div>
     </form>

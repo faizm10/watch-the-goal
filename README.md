@@ -168,6 +168,21 @@ It checks the mechanics, not real-world quality.
    and **Crop to fill**. Drag **Position** to follow the action in a wide
    shot. Framing is saved per clip. **Preview reel** plays the title and
    scoreboards over the kept clips in order.
+
+   The same dialog gives each kept clip a caption, a lower third that slides
+   in shortly after the clip starts (`GOAL · 47'`), and an optional
+   three-second end card (`Full time · Worker FC 3–2 Naanstop`). In a recap,
+   clips also fade through black into each other. **Write** drafts all of it
+   for you. With **tags and detection** it works offline from your calls, the
+   detector's reasons, the scoreboard and the match minute (counted from
+   kick-off once the recording is trimmed to the match). To have Claude,
+   OpenAI or Gemini write it instead, install the SDKs with
+   `uv sync --extra ai` and paste a key (or set `ANTHROPIC_API_KEY`,
+   `OPENAI_API_KEY` or `GEMINI_API_KEY` before starting the app). Only text
+   goes to the provider: team names, score, match minutes, your tags and the
+   detector's notes. It never gets footage, frames or file names. A pasted
+   key stays in the app's memory until you quit and is never saved. A draft
+   changes nothing until you **Save recap**.
 9. **Ask for a trim.** With local AI review enabled in **Analysis**, select
    a clip and choose **Include more of the buildup** or **Cut sooner after
    the goal**. Compare the proposed range to the current one before applying.
