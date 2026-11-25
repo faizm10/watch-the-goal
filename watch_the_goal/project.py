@@ -29,6 +29,7 @@ MIN_CLIP_SECONDS = 1.0
 TARGET_MIN, TARGET_MAX = 30.0, 60.0
 STATUSES = ("candidate", "kept", "skipped")
 CALL_LABELS = ("goal", "save", "near_miss", "chance", "tackle", "other")  # see coach.py
+MIN_PLAY_SECONDS = 60.0  # a trimmed match shorter than this is a mistake, not a match
 AUTO_OVERSHOOT = 1.25  # an auto-filled reel may run this far past its target rather than stop short
 SAME_CALL_SECONDS = 3.0  # a second call this close to one with no clip replaces it
 
@@ -75,6 +76,7 @@ class Project:
         for s in self.sources:
             s.setdefault("calls", [])  # projects from before calls existed
             s.setdefault("tuning", None)
+            s.setdefault("play", None)  # projects from before match trimming existed
             if s.get("analysis", {}).get("status") == "running":
                 s["analysis"] = {"status": "interrupted", "message": "Analysis was interrupted. Run it again."}
 
@@ -125,6 +127,7 @@ class Project:
                 "goal_areas": [],
                 "calls": [],  # the user's calls: what really happened at a moment
                 "tuning": None,  # thresholds learned from those calls (None = defaults)
+                "play": None,  # {"start", "end", "break": [a, b] | None}: the match itself (None = all of it)
                 "analysis": {"status": "pending"},
                 "preview": "original" if info.browser_safe else "pending",
                 "imported_at": time.time(),
@@ -145,6 +148,32 @@ class Project:
                 self.order.remove(cid)
                 del self.clips[cid]
             self.save()
+
+    def set_play(self, source_id: str, play: dict | None) -> dict:
+        """Where the match is in a recording: kick-off, full time and an optional
+        halftime break, in seconds. None (or the whole recording) clears it."""
+        with self.lock:
+            src = self.source(source_id)
+            duration = src["info"]["duration"]
+            if play:
+                try:
+                    start = float(play.get("start") or 0.0)
+                    end = float(play["end"]) if play.get("end") is not None else duration
+                    brk = [float(x) for x in play["break"]] if play.get("break") else None
+                except (TypeError, ValueError, KeyError):
+                    raise ProjectError("Match times must be numbers of seconds.") from None
+                start, end = max(0.0, start), min(duration, end)
+                if end - start < MIN_PLAY_SECONDS:
+                    raise ProjectError("Full time must be at least a minute after kick-off.")
+                if brk and not (start < brk[0] < brk[1] < end):
+                    raise ProjectError("Halftime must start after kick-off and end before full time.")
+                play = {"start": round(start, 2), "end": round(end, 2),
+                        "break": [round(brk[0], 2), round(brk[1], 2)] if brk else None}
+                if play["start"] == 0 and play["end"] >= round(duration, 2) and not brk:
+                    play = None
+            src["play"] = play or None
+            self.save()
+            return src
 
     def set_goal_areas(self, source_id: str, areas: list[dict]) -> dict:
         clean = []

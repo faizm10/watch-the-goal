@@ -188,8 +188,10 @@ function renderSources() {
         <div class="name" title="${esc(s.path)}">${esc(s.name)}</div>
         <div class="badges">${badges.join("")}</div>
         ${status}
+        ${s.kind === "long" ? playSummary(s) : ""}
         ${coachHtml(s, !!(job || rjob))}
         <div class="actions">
+          ${s.kind === "long" ? `<button class="btn small" data-act="trim" data-help="Set kick-off, halftime and full time so warm-ups and breaks are left out.">Trim match</button>` : ""}
           ${s.kind === "long" ? `<button class="btn small" data-act="goals" data-help="Draw boxes around the goal mouths in fixed-camera footage.">Mark goals</button>` : ""}
           <button class="btn small" data-act="analyze" data-help="Scan this recording again using the current analysis settings." ${job ? "disabled" : ""}>Re-analyse</button>
           ${reviewOn ? `<button class="btn small" data-act="review" data-help="Ask the local vision model about the strongest untouched suggestions." ${job || rjob ? "disabled" : ""}>AI review</button>` : ""}
@@ -226,7 +228,7 @@ function renderTimeline() {
       <div class="track-label" title="${esc(s.name)}">${esc(s.name)}<br><span class="d">${fmt(d, false)}</span></div>
       <div class="track-lane">
         <div class="track-ruler" aria-hidden="true">${ruler}</div>
-        <div class="track-bar" data-src="${s.id}"><canvas></canvas>${blocks.join("")}${callFlags(s)}<div class="ph" hidden></div></div>
+        <div class="track-bar" data-src="${s.id}"><canvas></canvas>${s.kind === "long" ? offPlay(s) : ""}${blocks.join("")}${callFlags(s)}<div class="ph" hidden></div></div>
       </div>
     </div>`;
   }).join("");
@@ -1089,6 +1091,7 @@ function wire() {
     const sid = card.dataset.src;
     const act = e.target.closest("[data-act]")?.dataset.act;
     if (act === "goals") return openGoals(sid);
+    if (act === "trim") return openTrim(sid);
     if (act === "analyze") return api("POST", `/api/sources/${sid}/analyze`).then(() => refresh(true)).catch((er) => toast(er.message, true));
     if (act === "review") return api("POST", `/api/sources/${sid}/review`).then(() => refresh(true)).catch((er) => toast(er.message, true));
     if (act === "retune") return retune(sid);
@@ -1256,6 +1259,7 @@ function wire() {
   window.addEventListener("resize", () => { renderTimeline(); renderEditor(); });
   setupGoalDrawing();
   wireCoach();
+  wireMatch();
 }
 
 wire();

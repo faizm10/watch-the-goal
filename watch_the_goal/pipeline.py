@@ -34,6 +34,7 @@ class Options:
     debug_dir: Path | None = None  # overlays and candidate timestamps go here when set
     tuning: detect.Tuning | None = None  # this recording's thresholds (None = defaults)
     calls: list[dict] = field(default_factory=list)  # the user's calls: {"t", "label"}
+    play: dict | None = None  # kick-off, full time and the break (detect.play_spans); None = all of it
 
 
 @dataclass
@@ -67,13 +68,15 @@ def analyze(
                               goal_areas, progress=lambda f: report(f * weight, "Listening and watching"))
     stats["signals_seconds"] = round(time.time() - t0, 2)
 
-    moments = detect.candidate_moments(sig, goal_areas, options.pre_roll, options.post_roll, options.tuning)
+    spans = detect.play_spans(options.play, sig.duration)
+    moments = detect.candidate_moments(sig, goal_areas, options.pre_roll, options.post_roll, options.tuning,
+                                       spans)
     stats["candidates"] = len(moments)
     if options.calls:
         from . import coach
 
         stats["moved_by_calls"] = coach.resemble(coach.Evidence(sig, goal_areas), moments, options.calls)
-    cap = options.max_moments or detect.default_cap(sig.duration)
+    cap = options.max_moments or detect.default_cap(detect.play_seconds(spans))
     evidence: list = []
 
     if options.detector != "none" and moments:

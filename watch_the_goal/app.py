@@ -129,6 +129,7 @@ class App:
                     debug_dir=self.project.workspace / "cache" / "debug" / source_id,
                     tuning=detect.Tuning.from_dict(src.get("tuning")) if src.get("tuning") else None,
                     calls=list(src.get("calls", [])),
+                    play=src.get("play"),
                 )
                 # Re-analysing (after a call, a new detector or new tuning) reuses the decoded signals.
                 cached = self.signals_for(src)
@@ -225,13 +226,23 @@ class App:
                 "Analyse this recording to see what the detector measured here."]}
         tuning = detect.Tuning.from_dict(src.get("tuning"))
         settings = self.project.settings
+        spans = detect.play_spans(src.get("play"), ev.sig.duration)
         candidates = detect.candidate_moments(ev.sig, src["goal_areas"], settings["pre_roll"],
-                                              settings["post_roll"], tuning)
+                                              settings["post_roll"], tuning, spans)
         coach.resemble(ev, candidates, src.get("calls", []))  # the same order analysis uses
-        cap = detect.default_cap(ev.sig.duration)
+        cap = detect.default_cap(detect.play_seconds(spans))
         with self.project.lock:
             clips = [dict(c) for c in self.project.clips.values() if c["source_id"] == source_id]
-        return lambda t, label=None: ev.explain(t, tuning, clips, candidates, cap, src["kind"] == "short", label)
+
+        def explain(t, label=None):
+            out = ev.explain(t, tuning, clips, candidates, cap, src["kind"] == "short", label)
+            if not any(a <= t <= b for a, b in spans):
+                out["verdict"], out["rank"] = "outside", None
+                out["lines"][-1] = ("This is outside the match you trimmed to (warm-up, halftime or after "
+                                    "full time), so nothing here is suggested.")
+            return out
+
+        return explain
 
     def explain(self, source_id: str, t: float, label: str | None = None) -> dict:
         return self._explainer(source_id)(t, label)
@@ -285,7 +296,8 @@ class App:
             try:
                 ev = self.evidence(source_id)
                 settings = self.project.settings
-                found = detect.candidate_moments(ev.sig, src["goal_areas"], settings["pre_roll"], settings["post_roll"])
+                found = detect.candidate_moments(ev.sig, src["goal_areas"], settings["pre_roll"], settings["post_roll"],
+                                                 spans=detect.play_spans(src.get("play"), ev.sig.duration))
                 result = coach.retune(ev, used, found)
             except Exception as exc:
                 self.project.update_source(source_id, analysis={"status": "error", "message": str(exc)})

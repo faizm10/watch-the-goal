@@ -339,14 +339,36 @@ def all_events(sig: Signals, goal_areas: list[dict] | None = None,
     return audio_events(sig, n, tuning), goal_events(sig, n, goal_areas or [], tuning), lull_events(sig, n)
 
 
+def play_spans(play: dict | None, duration: float) -> list[tuple[float, float]]:
+    """The parts of a recording that are the match: kick-off to full time,
+    without the halftime break. No ``play`` means all of it."""
+    if not play:
+        return [(0.0, duration)]
+    start = min(max(0.0, float(play.get("start") or 0.0)), duration)
+    end = min(duration, float(play["end"])) if play.get("end") is not None else duration
+    spans = [(start, end)]
+    if play.get("break"):
+        a, b = (min(max(float(x), start), end) for x in play["break"])
+        spans = [(start, a), (b, end)]
+    return [(a, b) for a, b in spans if b > a]
+
+
+def play_seconds(spans: list[tuple[float, float]]) -> float:
+    return sum(b - a for a, b in spans)
+
+
 def candidate_moments(
     sig: Signals,
     goal_areas: list[dict] | None = None,
     pre_roll: float = PRE_ROLL,
     post_roll: float = POST_ROLL,
     tuning: Tuning | None = None,
+    spans: list[tuple[float, float]] | None = None,
 ) -> list[Moment]:
-    """Every explained moment, strongest evidence first, before capping or merging."""
+    """Every explained moment, strongest evidence first, before capping or merging.
+
+    ``spans`` (see play_spans) keeps only moments during play, and keeps each
+    clip inside the half it happened in."""
     goal_areas = goal_areas or []
     n = int(math.ceil(sig.duration / STEP))
     if n < 4:
@@ -375,6 +397,9 @@ def candidate_moments(
         # The finish: motion in the goal mouth if we saw it, otherwise just
         # before the loudest reaction.
         anchor = min(e.t for e in goal_hits) if goal_hits else strongest.t
+        half = next(((a, b) for a, b in spans if a <= anchor <= b), None) if spans is not None else (0.0, sig.duration)
+        if half is None:
+            continue  # warm-up, halftime or after the final whistle
         support = [e for e in lulls if anchor - 2 <= e.t <= anchor + 14]
         evidence = cluster + support[:1]
         # With goals marked, noise with no action near either goal and no
@@ -396,6 +421,7 @@ def candidate_moments(
         last = max(max(e.t, e.end or e.t) for e in cluster)
         tail = min(max(anchor + post_roll, last + 1.0), anchor + 2 * post_roll)
         start, end = clamp_window(lead_in(smooth, anchor, pre_roll), tail, sig.duration)
+        start, end = max(start, half[0]), min(end, half[1])
         moments.append(Moment(anchor, start, end, reasons, kinds, strength))
     return sorted(moments, key=lambda m: -m.strength)
 
