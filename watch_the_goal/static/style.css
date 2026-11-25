@@ -396,3 +396,13 @@ body.dragging .drop-hint { border-color: var(--accent); background: rgba(63, 209
   font-size: 12px;
 }
 .auto-row select { flex: 1; min-width: 0; padding: 4px 8px; font-size: 12px; }
+
+/* Trimming a recording to the match */
+.offplay { position: absolute; top: 0; bottom: 0; z-index: 1; pointer-events: none;
+  background: repeating-linear-gradient(135deg, rgba(8, 11, 15, .78) 0 6px, rgba(8, 11, 15, .6) 6px 12px); }
+.trim-bar { border-left-color: var(--accent); }
+.trim-bar h4 { margin: 0; font-size: 13px; }
+.trim-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.trim-row .lbl { color: var(--muted); margin-left: 6px; }
+.trim-row .lbl:first-child { margin-left: 0; }
+.trim-row .t { font-family: var(--mono); min-width: 3.5em; }

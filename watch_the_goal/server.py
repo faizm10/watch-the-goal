@@ -247,6 +247,11 @@ class Handler(BaseHTTPRequestHandler):
                 p.update_source(m.group(1), tuning=None, coaching=None)
                 job = self.app.analyze(m.group(1))
                 return self.send_json({"job": job.to_dict()})
+            if m := re.fullmatch(r"/api/sources/(\w+)/play", path):
+                src = p.set_play(m.group(1), body.get("play"))
+                # Signals are cached, so this re-ranks in well under a second.
+                job = self.app.analyze(m.group(1)) if src["kind"] == "long" else None
+                return self.send_json({"play": src["play"], "job": job.to_dict() if job else None})
             if m := re.fullmatch(r"/api/sources/(\w+)/analyze", path):
                 return self.send_json({"job": self.app.analyze(m.group(1)).to_dict()})
             if m := re.fullmatch(r"/api/sources/(\w+)/review", path):

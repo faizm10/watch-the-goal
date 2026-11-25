@@ -70,6 +70,11 @@ An hour of 1080p takes about a minute to analyse on an M-series Mac. Then:
    many of your highlights it now finds on its own.
 4. Keep what you want and click **Export MP4**.
 
+If the recording includes warm-ups, a halftime break or the walk off, click
+**Trim match** on its card and set kick-off, halftime and full time from the
+playhead. Suggestions, auto-fill and re-tuning then ignore everything else,
+and the timeline greys it out. The original file isn't changed.
+
 For a fixed camera, **Mark goals** first: movement in the goal mouth becomes
 evidence too, and live detection counts players near each goal.
 
