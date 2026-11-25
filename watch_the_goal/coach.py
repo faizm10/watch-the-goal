@@ -29,9 +29,14 @@ from . import detect
 from .detect import DEFAULT_TUNING, STEP, Tuning
 from .signals import Signals
 
-LABELS = ("goal", "save", "near_miss", "other")
-HIGHLIGHTS = ("goal", "save", "near_miss")
-LABEL_TEXT = {"goal": "goal", "save": "save", "near_miss": "near miss", "other": "not a highlight"}
+LABELS = ("goal", "save", "near_miss", "chance", "tackle", "other")
+HIGHLIGHTS = ("goal", "save", "near_miss", "chance", "tackle")
+LABEL_TEXT = {"goal": "goal", "save": "save", "near_miss": "near miss", "chance": "chance",
+              "tackle": "tackle", "other": "not a highlight"}
+# What a reel is made of: a save and a near miss are both shots.
+KIND = {"goal": "goal", "save": "shot", "near_miss": "shot", "chance": "chance", "tackle": "tackle"}
+# A tackle is over in a moment and needs little buildup; the rest use the project's pre/post roll.
+TAG_ROLL = {"tackle": (6.0, 4.0)}
 
 # Where a moment's evidence is looked for, relative to its time. The crowd
 # reacts after the play, and people mark a missed goal a little late.

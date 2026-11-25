@@ -28,7 +28,8 @@ LONG_RECORDING_SECONDS = 120.0
 MIN_CLIP_SECONDS = 1.0
 TARGET_MIN, TARGET_MAX = 30.0, 60.0
 STATUSES = ("candidate", "kept", "skipped")
-CALL_LABELS = ("goal", "save", "near_miss", "other")  # see coach.py
+CALL_LABELS = ("goal", "save", "near_miss", "chance", "tackle", "other")  # see coach.py
+AUTO_OVERSHOOT = 1.25  # an auto-filled reel may run this far past its target rather than stop short
 SAME_CALL_SECONDS = 3.0  # a second call this close to one with no clip replaces it
 
 
@@ -265,6 +266,13 @@ class Project:
                     if not clip or (clip["start"], clip["end"]) != after:
                         continue
                     clip["start"], clip["end"] = before
+                elif kind == "status":
+                    # Only clips still as the edit left them; the user may have changed some since.
+                    still = [c for c in before if c in self.clips and self.clips[c]["status"] == after[c]]
+                    if not still:
+                        continue
+                    for c in still:
+                        self.clips[c]["status"] = before[c]
                 else:
                     # Preserve newly added clips and ignore clips since deleted.
                     present = set(before).intersection(self.order)
@@ -361,6 +369,40 @@ class Project:
                 added.append(clip)
             self.save()
             return added
+
+    def auto_reel(self, target: float | None) -> dict:
+        """Keep the strongest untouched suggestions until the reel runs about
+        ``target`` seconds (None: keep every suggestion).
+
+        Strongest means rank, so AI review and the user's calls already count;
+        with several recordings their #1s come first, then their #2s. Clips the
+        user kept or skipped stay as they are, and a suggestion the AI reviewer
+        called "not a highlight" is left out. One undo puts it all back."""
+        with self.lock:
+            index = {s["id"]: i for i, s in enumerate(self.sources)}
+            total = sum(c["end"] - c["start"] for c in self.reel())
+            pool = [self.clips[cid] for cid in self.order
+                    if self.clips[cid]["origin"] == "detected" and self.clips[cid]["status"] == "candidate"
+                    and not ((self.clips[cid].get("review") or {}).get("status") == "done"
+                             and self.clips[cid]["review"].get("label") == "other")]
+            pool.sort(key=lambda c: (c.get("rank") is None, c.get("rank") or 0,
+                                     index.get(c["source_id"], 0), c["start"]))
+            kept: list[str] = []
+            for c in pool:
+                length = c["end"] - c["start"]
+                if target is not None:
+                    if total >= target:
+                        break
+                    if total + length > target * AUTO_OVERSHOOT and (kept or total):
+                        continue  # too long to fit; a shorter, weaker one may
+                c["status"] = "kept"
+                kept.append(c["id"])
+                total += length
+            if kept:
+                self.history.append(("status", None, {c: "candidate" for c in kept}, {c: "kept" for c in kept}))
+                self.save()
+            left = sum(1 for c in pool if c["status"] == "candidate")
+            return {"kept": kept, "seconds": round(total, 1), "left": left}
 
     def reel(self) -> list[dict]:
         return [self.clips[cid] for cid in self.order if self.clips[cid]["status"] == "kept"]

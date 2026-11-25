@@ -14,7 +14,7 @@ Each LABELS.json describes one recording (paths are relative to the file):
       "moments": [{"t": 1219, "label": "save"}, {"t": 1385, "label": "other"}]  # optional
     }
 
-``moments`` labels individual non-goal suggestions (save, near_miss, other) so
+``moments`` labels individual non-goal suggestions (save, near_miss, chance, tackle, other) so
 precision can be measured on footage that hasn't been labelled end to end.
 Labels: likely_goal is implied by "goals".
 
@@ -48,7 +48,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from watch_the_goal import pipeline, review, signals  # noqa: E402
 from watch_the_goal.media import probe  # noqa: E402
 
-HIGHLIGHT = {"goal", "save", "near_miss"}
+HIGHLIGHT = {"goal", "save", "near_miss", "chance", "tackle"}
 AI_TO_TRUTH = {"likely_goal": "goal", "save": "save", "near_miss": "near_miss", "other": "other"}
 
 

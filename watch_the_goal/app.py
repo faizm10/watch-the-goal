@@ -249,9 +249,9 @@ class App:
                     clip_id = min(covering, key=lambda c: abs((c["anchor"] if c["anchor"] is not None
                                                                else c["start"]) - t))["id"]
                 elif label in coach.HIGHLIGHTS:
-                    clip = p.add_manual_clip(
-                        source_id, t - p.settings["pre_roll"], t + p.settings["post_roll"],
-                        [f"your call: {coach.LABEL_TEXT[label]}"], anchor=round(t, 2))
+                    pre, post = coach.TAG_ROLL.get(label, (p.settings["pre_roll"], p.settings["post_roll"]))
+                    clip = p.add_manual_clip(source_id, t - pre, t + post,
+                                             [f"your call: {coach.LABEL_TEXT[label]}"], anchor=round(t, 2))
                     clip_id = clip["id"]
             if clip_id is not None:
                 clip = p.clip(clip_id)

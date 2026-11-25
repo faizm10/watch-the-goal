@@ -14,16 +14,16 @@
       <span>Watch the Goal</span>
     </div>
     <div class="top-actions">
-      <label class="btn primary" title="Copy videos into the workspace and import them">
-        <input id="file-input" type="file" accept="video/*,.mov,.mp4,.m4v,.mkv" multiple hidden>
+      <label class="btn primary file-picker" data-help="Choose video files to copy into this project’s workspace.">
+        <input id="file-input" type="file" accept="video/*,.mov,.mp4,.m4v,.mkv" multiple aria-label="Add videos">
         Add videos
       </label>
-      <form id="path-form" class="path-form" title="Import files or a folder in place, without copying">
+      <form id="path-form" class="path-form">
         <input id="path-input" type="text" placeholder="…or paste a file/folder path" spellcheck="false">
-        <button class="btn" type="submit">Import</button>
+        <button class="btn" type="submit" data-help="Import a file or folder from its existing location.">Import</button>
       </form>
-      <button id="settings-btn" class="btn ghost" title="Player detector and AI review (both optional)">Analysis</button>
-      <button id="reset-btn" class="btn ghost" title="Clear this project (source files are not touched)">New project</button>
+      <button id="settings-btn" class="btn ghost" data-help="Configure the optional player detector and local AI review.">Analysis</button>
+      <button id="reset-btn" class="btn ghost" data-help="Start a fresh project. Your original video files stay on disk.">New project</button>
     </div>
   </header>
 
@@ -38,24 +38,27 @@
     </aside>
 
     <section class="stage">
-      <div class="player-wrap">
-        <video id="player" playsinline preload="metadata"></video>
-        <canvas id="composition" hidden aria-label="Reel framing preview"></canvas>
-        <canvas id="live-overlay" hidden aria-hidden="true"></canvas>
-        <div id="live-hud" class="live-hud" hidden aria-live="off"></div>
-        <div id="player-empty" class="player-empty">Import footage to start</div>
-        <div id="player-badge" class="player-badge" hidden></div>
-      </div>
-      <div class="transport">
-        <button id="play-btn" class="btn icon" title="Play / pause (Space)">▶</button>
-        <span id="time-readout" class="mono">0:00.0</span>
-        <button class="btn small" id="undo-btn" disabled title="Undo trim or reorder (Ctrl/⌘ Z)">Undo</button>
-        <span id="transport-note" class="muted"></span>
-        <span class="spacer"></span>
-        <button id="live-btn" class="btn small" aria-pressed="false" title="Show what the detector sees and hears at the playhead (D)">◉ Live detection</button>
-        <button id="missed-btn" class="btn small" title="Call a goal at the playhead. If no clip covers it, one is added with its buildup (G)" disabled>⚑ Goal here</button>
-        <button id="new-clip-btn" class="btn" title="Make a clip around the playhead (N)" disabled>+ Clip here</button>
-      </div>
+      <section class="monitor" aria-labelledby="monitor-title">
+        <h2 id="monitor-title" class="panel-title">Preview</h2>
+        <div class="player-wrap">
+          <video id="player" playsinline preload="metadata"></video>
+          <canvas id="composition" hidden aria-label="Reel framing preview"></canvas>
+          <canvas id="live-overlay" hidden aria-hidden="true"></canvas>
+          <div id="live-hud" class="live-hud" hidden aria-live="off"></div>
+          <div id="player-empty" class="player-empty">Import footage to start</div>
+          <div id="player-badge" class="player-badge" hidden></div>
+        </div>
+        <div class="transport">
+          <button id="play-btn" class="btn icon" aria-label="Play or pause" data-help="Play or pause the preview (Space).">▶</button>
+          <span id="time-readout" class="mono">0:00.0</span>
+          <button class="btn small" id="undo-btn" disabled data-help="Undo the last trim, reel reorder or auto-fill (Ctrl/⌘ Z).">Undo</button>
+          <span id="transport-note" class="muted"></span>
+          <span class="spacer"></span>
+          <button id="live-btn" class="btn small" aria-pressed="false" data-help="See the audio and motion signals at the playhead (D).">◉ Live detection</button>
+          <button id="missed-btn" class="btn small" data-help="Mark a goal at the playhead and create a clip if needed (G)." disabled>⚑ Goal here</button>
+          <button id="new-clip-btn" class="btn" data-help="Create a clip around the current playhead position (N)." disabled>+ Clip here</button>
+        </div>
+      </section>
       <div id="coach-note" class="coach-note" hidden aria-live="polite"></div>
       <div id="editor" class="editor" hidden></div>
       <div class="timeline-wrap">
@@ -64,7 +67,7 @@
           <span class="legend"><i class="sw candidate"></i>suggested <i class="sw kept"></i>kept <i class="sw skipped"></i>skipped <i class="tick-sw"></i>heard/saw <i class="flag-sw"></i>your call</span>
           <span class="spacer"></span>
           <label class="muted toggle" title="J/L visits suggestions strongest first (after AI review: likely goals first)"><input type="checkbox" id="best-first"> strongest first</label>
-          <span class="muted keys">J/L next · K keep · X skip · 1–4 call · G goal · D live</span>
+          <span class="muted keys">J/L next · K keep · X skip · 1–5 tag · 0 not one · D live</span>
         </div>
         <div id="timeline" class="timeline"></div>
       </div>
@@ -73,12 +76,21 @@
     <aside class="panel reel">
       <h2>Reel</h2>
       <div id="meter" class="meter"></div>
+      <div class="row auto-row">
+        <button id="auto-btn" class="btn small" disabled data-help="Keep the strongest suggestions until the reel is about this long. One Undo puts them back.">Auto-fill from suggestions</button>
+        <select id="auto-target" aria-label="Auto-fill length" data-help="How long auto-fill makes the reel, counting clips already in it.">
+          <option value="45">about 45 s</option>
+          <option value="60" selected>about 60 s</option>
+          <option value="90">about 90 s</option>
+          <option value="all">every suggestion</option>
+        </select>
+      </div>
       <ol id="reel-list" class="reel-list"></ol>
       <div class="export-box">
         <div class="row"><label for="template-select" class="muted">Template</label>
           <select id="template-select"><option value="plain">Original footage</option><option value="recap">Match recap</option></select>
         </div>
-        <button class="btn small" id="details-btn" hidden>Edit title &amp; scoreboards</button>
+        <button class="btn small" id="details-btn" data-help="Set the opening title and per-recording scores." hidden>Edit title &amp; scoreboards</button>
         <div class="row">
           <label for="layout-select" class="muted">Shape</label>
           <select id="layout-select">
@@ -89,8 +101,8 @@
           </select>
         </div>
         <div class="row">
-          <button id="preview-reel-btn" class="btn" disabled>Preview reel</button>
-          <button id="export-btn" class="btn primary grow" disabled>Export MP4</button>
+          <button id="preview-reel-btn" class="btn" data-help="Play the kept clips in reel order with the selected framing." disabled>Preview reel</button>
+          <button id="export-btn" class="btn primary grow" data-help="Render the kept clips as one MP4. Keep a clip to enable export." disabled>Export MP4</button>
         </div>
         <div aria-live="polite" id="export-status" class="export-status"></div>
       </div>
@@ -156,5 +168,6 @@
   <script src="/static/composition.js"></script>
   <script src="/static/coach.js"></script>
   <script src="/static/app.js"></script>
+  <script src="/static/tooltips.js"></script>
 </body>
 </html>
