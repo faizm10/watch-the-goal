@@ -1,0 +1,37 @@
+[project]
+name = "watch-the-goal"
+version = "0.1.0"
+description = "Local-first tool that turns soccer videos into one highlight reel, keeping the buildup."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [{ name = "Watch the Goal contributors" }]
+dependencies = [
+    "numpy>=1.24",
+    "opencv-python-headless>=4.10",
+    "pillow>=10.1",
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+  "Topic :: Multimedia :: Video",
+]
+
+[project.scripts]
+watch-the-goal = "watch_the_goal.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+# Browser tests of the real UI: scripts/e2e_ui.py (uv run --group e2e ...)
+e2e = ["playwright>=1.49"]
+
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["watch_the_goal"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

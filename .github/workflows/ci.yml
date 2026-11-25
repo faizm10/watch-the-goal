@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: tests (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install FFmpeg (Ubuntu)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install FFmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: ffmpeg -version | head -1
+      - run: uv sync
+      # Multi-file import, timestamp boundaries, merging, mixed-format MP4 export,
+      # detectors (fake models), ranking, AI review validation and fallback, skills in sync.
+      - run: uv run pytest -q
+
+  demo:
+    name: demo footage + detection report
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync
+      - name: Render synthetic demo (half size)
+        run: uv run python scripts/make_demo.py --quick --out demo/footage
+      - name: Detection on the synthetic match (mechanics only, not real-world quality)
+        run: |
+          uv run python scripts/eval_detection.py demo/footage/sunday_match_wide.mp4 demo/footage/labels.json
+          uv run python scripts/eval_detection.py demo/footage/sunday_match_wide.mp4 demo/footage/labels.json --use-goal-areas
+      - name: Export a reel from all four demo files
+        run: uv run python scripts/demo_reel.py demo/footage --out demo/reel.mp4
+
+  e2e:
+    name: browser test of the UI on synthetic footage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --group e2e
+      - run: uv run --group e2e playwright install --with-deps chromium
+      - name: Render synthetic demo (half size)
+        run: uv run python scripts/make_demo.py --quick --out demo/footage
+      # Import (path + upload), suggestions, trim, keep, reorder, export, then check_reel.py.
+      # No models and no AI reviewer: the baseline must work with nothing downloaded.
+      - name: Baseline, no models
+        run: |
+          uv run --group e2e python scripts/e2e_ui.py demo/footage/sunday_match_wide.mp4 \
+            demo/footage/phone_goal_portrait.mov demo/footage/phone_goal_60fps.mp4 demo/footage/phone_chance_noaudio.mp4 \
+            --goal 70 --out bench/e2e/baseline
+      - name: AI review enabled but unreachable (fallback keeps suggestions)
+        run: |
+          uv run --group e2e python scripts/e2e_ui.py demo/footage/sunday_match_wide.mp4 \
+            demo/footage/phone_goal_portrait.mov --goal 70 --review fail --out bench/e2e/review-fail
+      - name: Recap preview and export in both shapes
+        run: |
+          for shape in landscape portrait; do
+            uv run --group e2e python scripts/e2e_ui.py demo/footage/sunday_match_wide.mp4 demo/footage/phone* \
+              --goal 70 --recap --layout "$shape" --out "bench/e2e/recap-$shape"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-screenshots
+          path: bench/e2e/**/*.png
