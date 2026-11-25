@@ -32,6 +32,11 @@ AUDIO_MIN_SECONDS = 0.75
 GOAL_Z = 3.5
 GOAL_MIN_SHARE = 0.02
 LULL_RATIO = 0.6
+CAMERA_WINDOW = 180.0  # seconds of context for where an auto-panning camera usually points
+CAMERA_MIN_SWEEP = 0.15  # frame widths; a camera that turns less than this isn't following play
+ATTACK_END = 0.75  # how far towards one end of its sweep the camera must point (1 = the end)
+ATTACK_SECONDS = 3.0  # held at least this long
+ATTACK_SUPPORT = (-4.0, 14.0)  # an attack ending this close to noise or goal-box motion is part of that moment
 
 
 @dataclass(frozen=True)
@@ -157,7 +162,7 @@ def area_label(area: dict, index: int) -> str:
 
 @dataclass
 class Event:
-    kind: str  # "audio" | "goal" | "lull" | "motion"
+    kind: str  # "audio" | "goal" | "attack" | "lull"
     t: float  # best estimate of when the moment happened
     strength: float
     reason: str
@@ -330,6 +335,49 @@ def lead_in(motion: np.ndarray | None, anchor: float, pre_roll: float, max_pre_r
     return k * STEP
 
 
+def camera_offset(sig: Signals, n: int) -> np.ndarray | None:
+    """Where an auto-panning camera (Veo, Trace, Pixellot...) points, on the
+    STEP grid: 0 at the middle of its sweep over the surrounding few minutes,
+    about +1 at its left end and -1 at its right. Such cameras follow the
+    ball, so this says which end play is at. None for a fixed camera."""
+    if len(sig.pan) == 0 or n < 4:
+        return None
+    pos = to_grid(np.cumsum(sig.pan.astype(np.float64)), sig.motion_hop, n, "mean")
+    half = int(CAMERA_WINDOW / STEP) // 2
+    at = np.arange(0, n, 4)
+    windows = [pos[max(0, i - half):i + half + 1] for i in at]
+    lo = np.interp(np.arange(n), at, [np.percentile(w, 5) for w in windows])
+    hi = np.interp(np.arange(n), at, [np.percentile(w, 95) for w in windows])
+    if float(np.median(hi - lo)) < CAMERA_MIN_SWEEP:
+        return None
+    return (pos - (lo + hi) / 2) / np.maximum((hi - lo) / 2, CAMERA_MIN_SWEEP / 2)
+
+
+def attack_events(sig: Signals, n: int) -> list[Event]:
+    """An auto-panning camera held at one end while play was busy: play in a
+    final third. Each event's time is when the camera left that end. On a
+    phone or tripod the camera doesn't move, so this never fires."""
+    offset = camera_offset(sig, n)
+    m = flow(sig, n)
+    if offset is None or m is None:
+        return []
+    hot = (np.abs(offset) > ATTACK_END) & (m > float(np.median(m)) * 0.9)
+    events = []
+    for a, b in runs(hot, max_gap=4):
+        held = (b - a + 1) * STEP
+        end = b * STEP
+        if held < ATTACK_SECONDS:
+            continue
+        side = "left" if offset[a:b + 1].mean() > 0 else "right"
+        events.append(Event(
+            kind="attack",
+            t=end,
+            strength=0.5,
+            reason=f"the camera followed play to the {side} end for {held:.0f}s",
+        ))
+    return events
+
+
 def all_events(sig: Signals, goal_areas: list[dict] | None = None,
                tuning: Tuning = DEFAULT_TUNING) -> tuple[list[Event], list[Event], list[Event]]:
     """Audio, goal-area and lull events, before they are grouped into moments."""
@@ -374,12 +422,13 @@ def candidate_moments(
     if n < 4:
         return []
     audio, goals, lulls = all_events(sig, goal_areas, tuning or DEFAULT_TUNING)
+    attacks = attack_events(sig, n)
     smooth = flow(sig, n)
 
     # Primary evidence starts a moment; lulls only support one, unless the
-    # footage has no audio and no goal areas, where they are all we have.
+    # footage has no audio, no goal areas and a fixed camera, where they are all we have.
     primary = audio + goals
-    if not primary and sig.audio_db is None and not goal_areas:
+    if not primary and not attacks and sig.audio_db is None and not goal_areas:
         primary = lulls
         lulls = []
 
@@ -389,6 +438,16 @@ def candidate_moments(
             clusters[-1].append(ev)
         else:
             clusters.append([ev])
+    # An attack joins the noise or goal-box motion it led to. On its own it is
+    # a moment only if play stopped right after (a shot out, a save, a goal).
+    for ev in attacks:
+        home = next((c for c in clusters
+                     if c[0].t + ATTACK_SUPPORT[0] <= ev.t <= c[-1].t + ATTACK_SUPPORT[1]), None)
+        if home is not None:
+            home.append(ev)
+        else:
+            clusters.append([ev])
+    clusters.sort(key=lambda c: min(e.t for e in c))
 
     moments: list[Moment] = []
     for cluster in clusters:
@@ -406,9 +465,13 @@ def candidate_moments(
         # stoppage afterwards is more likely an argument than a goal.
         if goal_areas and not goal_hits and not support:
             continue
+        # Play reaches a final third every minute or so; on its own that is a
+        # moment only if play stopped right after (a shot out, a save, a goal).
+        if all(e.kind == "attack" for e in cluster) and not support:
+            continue
         # One reason per kind of evidence, from its strongest instance.
         reasons: list[str] = []
-        for kind in ("goal", "audio", "lull"):
+        for kind in ("goal", "audio", "attack", "lull"):
             of_kind = [e for e in evidence if e.kind == kind]
             if kind == "goal":
                 labels = [e.reason for e in of_kind]

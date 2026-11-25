@@ -93,3 +93,76 @@ def test_extract_finds_a_real_noise_burst(tmp_path):
     assert len(moments) == 1
     assert moments[0].anchor == pytest.approx(39.5, abs=1)
     assert len(sig.motion) == pytest.approx(60 * signals.MOTION_FPS, abs=2)
+
+
+def panning_signals(duration=600.0, seed=1):
+    """A camera that follows play: it sweeps about a frame width back and forth."""
+    sig = make_signals(duration, seed)
+    t = np.arange(len(sig.motion)) * sig.motion_hop
+    pos = 0.5 * np.sin(2 * np.pi * t / 120)
+    return sig, t, pos
+
+
+def test_auto_panning_camera_held_at_one_end_then_play_stops_is_a_moment():
+    sig, t, pos = panning_signals()
+    held = (t >= 300) & (t < 308)
+    pos[held] = 0.6  # play is at the left end...
+    pos[t >= 308] = 0.6 + 0.5 * np.sin(2 * np.pi * (t[t >= 308] - 308) / 120 + np.pi / 2) - 0.5
+    burst(sig.motion, sig.motion_hop, 290, 308, 0.04)  # ...and busy
+    burst(sig.motion, sig.motion_hop, 308, 325, 0.005)  # then the ball goes dead
+    sig.pan = np.diff(pos, prepend=pos[0]).astype(np.float32)
+    n = int(np.ceil(sig.duration / detect.STEP))
+    held = next(e for e in detect.attack_events(sig, n) if abs(e.t - 308) <= 2)
+    assert "left end" in held.reason
+    # The camera reaches either end every minute, but only this time did play stop after.
+    moments = [m for m in detect.find_moments(sig, []) if "attack" in m.kinds]
+    assert len(moments) == 1
+    mo = moments[0]
+    assert mo.start <= 300 <= 308 <= mo.end
+    assert any("camera followed play to the left end" in r for r in mo.reasons)
+
+
+def test_attack_joins_the_cheer_it_led_to():
+    sig, t, pos = panning_signals()
+    pos[(t >= 290) & (t < 312)] = 0.6
+    burst(sig.motion, sig.motion_hop, 285, 312, 0.04)
+    burst(sig.audio_db, sig.audio_hop, 300, 303, -12)  # the finish; the celebration keeps the camera there
+    sig.pan = np.diff(pos, prepend=pos[0]).astype(np.float32)
+    mo = next(m for m in detect.find_moments(sig, []) if "audio" in m.kinds)
+    assert "attack" in mo.kinds
+    assert mo.anchor == pytest.approx(299.5, abs=1)
+
+
+def test_fixed_camera_never_reports_an_attack():
+    sig = make_signals(600.0, 1)
+    burst(sig.motion, sig.motion_hop, 290, 308, 0.04)
+    burst(sig.motion, sig.motion_hop, 308, 325, 0.005)
+    n = int(np.ceil(sig.duration / detect.STEP))
+    assert detect.camera_offset(sig, n) is None  # no pan measured
+    sig.pan = np.zeros(len(sig.motion), np.float32)
+    assert detect.camera_offset(sig, n) is None  # on a tripod
+    assert detect.attack_events(sig, n) == []
+
+
+def test_signals_cached_before_pan_was_measured_are_stale(tmp_path):
+    sig, _, pos = panning_signals(120.0)
+    sig.pan = np.diff(pos, prepend=pos[0]).astype(np.float32)
+    f = tmp_path / "s.npz"
+    signals.save(sig, f, key="[]")
+    assert np.allclose(signals.load(f, key="[]").pan, sig.pan)
+    d = dict(np.load(f))
+    del d["pan"]
+    np.savez(f, **d)
+    assert signals.load(f, key="[]") is None
+
+
+def test_extract_measures_which_way_the_camera_turns(tmp_path):
+    """A crop window sliding right over a wide scene is a camera turning right."""
+    path = tmp_path / "pan.mp4"
+    run("-f", "lavfi", "-i", "testsrc2=s=960x180:r=10:d=8",
+        "-vf", "crop=320:180:x='min(t*40,600)':y=0", "-c:v", "libx264", str(path))
+    info = probe(path)
+    sig = signals.extract(info.path, info.width, info.height, info.duration, info.has_audio)
+    assert len(sig.pan) == len(sig.motion)
+    turned = float(np.sum(sig.pan))  # in frame widths
+    assert turned == pytest.approx(-8 * 40 / 320, rel=0.25)

@@ -197,7 +197,9 @@ frame and inside each marked goal box). It looks for:
 
 - sustained crowd noise well above the local level,
 - motion in a marked goal area,
-- play stopping after a burst of action.
+- play stopping after a burst of action,
+- on an auto-panning camera (Veo and similar), the camera following play to
+  one end. It is measured from how the background shifts, so no model is needed.
 
 Agreeing signals form one moment. Its clip starts 12 s early to keep the
 buildup, or earlier (up to 20 s) when play was already surging at that
