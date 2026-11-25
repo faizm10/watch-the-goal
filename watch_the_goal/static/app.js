@@ -190,10 +190,10 @@ function renderSources() {
         ${status}
         ${coachHtml(s, !!(job || rjob))}
         <div class="actions">
-          ${s.kind === "long" ? `<button class="btn small" data-act="goals">Mark goals</button>` : ""}
-          <button class="btn small" data-act="analyze" ${job ? "disabled" : ""}>Re-analyse</button>
-          ${reviewOn ? `<button class="btn small" data-act="review" ${job || rjob ? "disabled" : ""} title="Ask the local vision model about the strongest untouched suggestions">AI review</button>` : ""}
-          <button class="btn small ghost danger" data-act="remove" title="Remove from project (the file is not deleted)">Remove</button>
+          ${s.kind === "long" ? `<button class="btn small" data-act="goals" data-help="Draw boxes around the goal mouths in fixed-camera footage.">Mark goals</button>` : ""}
+          <button class="btn small" data-act="analyze" data-help="Scan this recording again using the current analysis settings." ${job ? "disabled" : ""}>Re-analyse</button>
+          ${reviewOn ? `<button class="btn small" data-act="review" data-help="Ask the local vision model about the strongest untouched suggestions." ${job || rjob ? "disabled" : ""}>AI review</button>` : ""}
+          <button class="btn small ghost danger" data-act="remove" data-help="Remove this recording from the project. The original file stays on disk.">Remove</button>
         </div>
       </div>
     </div>`;
@@ -221,9 +221,13 @@ function renderTimeline() {
       const tip = `${fmt(c.start)}–${fmt(c.end)} · ${c.reasons.join("; ")}`;
       return `<button aria-label="${esc(s.name)} · ${fmt(c.start)} to ${fmt(c.end)}" class="block ${c.status} ${c.id === sel.clipId ? "sel" : ""}" data-clip="${c.id}" title="${esc(tip)}" style="left:${left}%;width:${width}%"></button>`;
     });
+    const ruler = Array.from({length: 5}, (_, i) => `<span>${fmt(d * i / 4, false)}</span>`).join("");
     return `<div class="track ${s.id === sel.sourceId ? "active" : ""}" data-src="${s.id}">
       <div class="track-label" title="${esc(s.name)}">${esc(s.name)}<br><span class="d">${fmt(d, false)}</span></div>
-      <div class="track-bar" data-src="${s.id}"><canvas></canvas>${blocks.join("")}${callFlags(s)}<div class="ph" hidden></div></div>
+      <div class="track-lane">
+        <div class="track-ruler" aria-hidden="true">${ruler}</div>
+        <div class="track-bar" data-src="${s.id}"><canvas></canvas>${blocks.join("")}${callFlags(s)}<div class="ph" hidden></div></div>
+      </div>
     </div>`;
   }).join("");
   if (focusedClip) el.querySelector(`[data-clip="${focusedClip}"]`)?.focus({preventScroll: true});
@@ -368,15 +372,15 @@ function renderEditor() {
     <div class="editor-head">
       <span class="editor-title" title="${rank ? "Rank among this recording's suggestions, strongest first" : ""}">${origin}${rank} · ${esc(s.name)}</span>
       <span class="spacer"></span>
-      <button class="btn small" data-act="play-clip" title="Play from start to end">↻ Replay range</button>
-      <button class="btn small keep ${c.status === "kept" ? "on" : ""}" data-act="keep" title="Keep in reel (K)">✓ Keep</button>
-      <button class="btn small skip ${c.status === "skipped" ? "on" : ""}" data-act="skip" title="Skip (X)">Skip</button>
+      <button class="btn small" data-act="play-clip" data-help="Play just the selected clip from its In point to its Out point.">↻ Replay range</button>
+      <button class="btn small keep ${c.status === "kept" ? "on" : ""}" data-act="keep" data-help="Add this clip to the reel (K).">✓ Keep</button>
+      <button class="btn small skip ${c.status === "skipped" ? "on" : ""}" data-act="skip" data-help="Leave this clip out of the reel (X).">Skip</button>
       ${c.origin !== "short-clip" ? `<button class="btn small ghost danger" data-act="delete" title="Delete this clip">Delete</button>` : ""}
     </div>
     <div class="reasons">${reasons}</div>
     ${callsRow(c)}
     <div class="range-meta"><span>In <b id="start-label"></b></span>
-      ${moment != null ? `<button class="event-jump" data-act="finish">◆ Finish ${fmt(moment)}</button>` : ""}
+      ${moment != null ? `<button class="event-jump" data-act="finish" data-help="Jump to the suggested finish without changing the trim.">◆ Finish ${fmt(moment)}</button>` : ""}
       <span>Out <b id="end-label"></b></span></div>
     <div class="zoom" id="zoom">${s.info.has_audio ? '<canvas id="zoom-wave" aria-label="Audio waveform"></canvas>' : '<canvas></canvas>'}
       <div class="sel ${c.status}" id="zoom-sel"></div>
@@ -388,19 +392,19 @@ function renderEditor() {
     </div>
     <div class="trim-row">
       <div class="trim-side">
-        <button class="btn small" data-act="start-5" title="Start 5 seconds earlier to catch the buildup (Shift+←)">⟵ 5s earlier</button>
-        <button class="btn small" data-act="start-1">−1s</button>
-        <button class="btn small" data-act="start+1">+1s</button>
-        <button class="btn small" data-act="start-here" title="Start at the playhead ([)">Start here</button>
+        <button class="btn small" data-act="start-5" data-help="Include five more seconds of buildup (Shift+←).">⟵ 5s earlier</button>
+        <button class="btn small" data-act="start-1" data-help="Move the In point one second earlier.">−1s</button>
+        <button class="btn small" data-act="start+1" data-help="Move the In point one second later.">+1s</button>
+        <button class="btn small" data-act="start-here" data-help="Set the In point to the playhead ([).">Start here</button>
 
       </div>
       <div class="trim-len" id="len-label">${clipLen(c).toFixed(1)}s</div>
       <div class="trim-side end">
 
-        <button class="btn small" data-act="end-here" title="End at the playhead (])">End here</button>
-        <button class="btn small" data-act="end-1">−1s</button>
-        <button class="btn small" data-act="end+1">+1s</button>
-        <button class="btn small" data-act="end+5" title="End 5 seconds later (Shift+→)">5s later ⟶</button>
+        <button class="btn small" data-act="end-here" data-help="Set the Out point to the playhead (]).">End here</button>
+        <button class="btn small" data-act="end-1" data-help="Move the Out point one second earlier.">−1s</button>
+        <button class="btn small" data-act="end+1" data-help="Move the Out point one second later.">+1s</button>
+        <button class="btn small" data-act="end+5" data-help="Move the Out point five seconds later (Shift+→).">5s later ⟶</button>
       </div>
     </div>
     ${trimHtml}${editControls(c)}
@@ -465,7 +469,7 @@ function renderReel() {
         <span class="n" title="Drag to reorder">${i + 1}</span>
         <img src="${frameUrl(s.id, Math.min(c.anchor ?? c.start + clipLen(c) / 2, s.info.duration - 0.1), 160)}" alt="" loading="lazy">
         <div class="t"><div>${esc(s.name)}</div><div class="s">${fmt(c.start, false)}–${fmt(c.end, false)} · ${clipLen(c).toFixed(1)}s</div></div>
-        <div class="mv"><button data-move="-1" title="Move up">▲</button><button data-move="1" title="Move down">▼</button></div>
+        <div class="mv"><button data-move="-1" aria-label="Move up" data-help="Move this clip earlier in the reel.">▲</button><button data-move="1" aria-label="Move down" data-help="Move this clip later in the reel.">▼</button></div>
       </li>`;
     }).join("")
     : `<li class="reel-empty">Nothing kept yet.</li>`;
