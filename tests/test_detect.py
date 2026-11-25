@@ -158,9 +158,14 @@ def test_signals_cached_before_pan_was_measured_are_stale(tmp_path):
 
 def test_extract_measures_which_way_the_camera_turns(tmp_path):
     """A crop window sliding right over a wide scene is a camera turning right."""
+    from PIL import Image, ImageFilter
+
+    rng = np.random.default_rng(3)  # a still, textured scene, the same on every ffmpeg build
+    scene = tmp_path / "scene.png"
+    Image.fromarray(rng.integers(0, 256, (180, 960), dtype=np.uint8)).filter(ImageFilter.GaussianBlur(2)).save(scene)
     path = tmp_path / "pan.mp4"
-    run("-f", "lavfi", "-i", "testsrc2=s=960x180:r=10:d=8",
-        "-vf", "crop=320:180:x='min(t*40,600)':y=0", "-c:v", "libx264", str(path))
+    run("-loop", "1", "-framerate", "10", "-t", "8", "-i", str(scene),
+        "-vf", "crop=320:180:x='min(t*40,600)':y=0,format=yuv420p", "-c:v", "libx264", str(path))
     info = probe(path)
     sig = signals.extract(info.path, info.width, info.height, info.duration, info.has_audio)
     assert len(sig.pan) == len(sig.motion)
