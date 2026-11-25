@@ -402,7 +402,7 @@ body.dragging .drop-hint { border-color: var(--accent); background: rgba(63, 209
   background: repeating-linear-gradient(135deg, rgba(8, 11, 15, .78) 0 6px, rgba(8, 11, 15, .6) 6px 12px); }
 .trim-bar { border-left-color: var(--accent); }
 .trim-bar h4 { margin: 0; font-size: 13px; }
-.trim-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.trim-row .lbl { color: var(--muted); margin-left: 6px; }
-.trim-row .lbl:first-child { margin-left: 0; }
-.trim-row .t { font-family: var(--mono); min-width: 3.5em; }
+.match-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.match-row .lbl { color: var(--muted); margin-left: 6px; }
+.match-row .lbl:first-child { margin-left: 0; }
+.match-row .t { font-family: var(--mono); min-width: 3.5em; }

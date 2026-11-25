@@ -49,7 +49,7 @@ function renderTrim() {
   bar.innerHTML = `
     <h4>Trim ${esc(s.name)} to the match</h4>
     <div class="muted">Scrub to each moment and set it from the playhead. Suggestions, auto-fill and re-tuning ignore the rest.</div>
-    <div class="trim-row">
+    <div class="match-row">
       <span class="lbl">Kick-off</span><span class="t">${t(p.start)}</span>
       <button class="btn small" data-trim="start">Set here</button>
       <span class="lbl">Halftime</span><span class="t">${t(p.breakStart)}–${t(p.breakEnd)}</span>
@@ -59,7 +59,7 @@ function renderTrim() {
       <span class="lbl">Full time</span><span class="t">${t(p.end)}</span>
       <button class="btn small" data-trim="end">Set here</button>
     </div>
-    <div class="trim-row">
+    <div class="match-row">
       <button class="btn small primary" data-trim="save">Save and re-rank</button>
       ${s.play ? `<button class="btn small ghost" data-trim="whole">Use the whole recording</button>` : ""}
       <button class="btn small ghost" data-trim="cancel">Cancel</button>
