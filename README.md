@@ -40,15 +40,38 @@ exported reels are kept in `~/WatchTheGoal` (change it with `--workspace`).
 
 Without uv: `pip install .` then `watch-the-goal`.
 
-### Try it with the demo footage
+### Try it on your own match
+
+Point it at a full recording: a Veo or other auto-panning camera, or a phone
+on a tripod. It's read in place, never copied or modified.
 
 ```sh
-uv run python scripts/make_demo.py      # renders a synthetic match + 3 phone clips (~2 min)
-uv run watch-the-goal demo/footage      # starts with all four imported
+uv run watch-the-goal ~/Movies/sunday-match.mp4
 ```
 
-The demo footage is drawn by code, so it's safe to share. See
-[demo/README.md](demo/README.md).
+An hour of 1080p takes about a minute to analyse on an M-series Mac. Then:
+
+1. Press `D` for **live detection** and play the recording. The panel on the
+   video shows crowd noise, goal-mouth movement and tempo against the bars
+   they must clear, and what was flagged at that moment. With a player
+   detector downloaded (**Analysis**, one click), players are boxed as you
+   watch.
+2. Walk the suggestions with `J`/`L`. Call each one with `1`–`4` (goal, save,
+   near miss, not a highlight). Where it missed a goal, pause on it and press
+   `G`. Every call says what the detector measured there and why it did or
+   didn't suggest it.
+3. Click **Re-tune from my calls** on the recording's card. The recording's
+   bars move just far enough to agree with you, and the suggestions are
+   re-ranked by resemblance to your calls. The card says what changed and how
+   many of your highlights it now finds on its own.
+4. Keep what you want and click **Export MP4**.
+
+For a fixed camera, **Mark goals** first: movement in the goal mouth becomes
+evidence too, and live detection counts players near each goal.
+
+Developers and CI use a synthetic match drawn by code
+(`uv run python scripts/make_demo.py`, see [demo/README.md](demo/README.md)).
+It checks the mechanics, not real-world quality.
 
 ## Using it
 
