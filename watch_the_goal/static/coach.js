@@ -3,9 +3,15 @@
 // user's calls (what really happened), which re-tune a recording's analysis.
 // Shares globals with app.js; nothing here runs before app.js has loaded.
 
-const CALLS = [["goal", "Goal"], ["save", "Save"], ["near_miss", "Near miss"], ["other", "Not a highlight"]];
-const CALL_TEXT = { goal: "goal", save: "save", near_miss: "near miss", other: "not a highlight" };
-const CALL_PLURAL = { goal: "goals", save: "saves", near_miss: "near misses", other: "not highlights" };
+// [label, button text, key]
+const CALLS = [["goal", "Goal", "1"], ["save", "Save", "2"], ["near_miss", "Near miss", "3"], ["chance", "Chance", "4"],
+  ["tackle", "Tackle", "5"], ["other", "Not a highlight", "0"]];
+const CALL_TEXT = { goal: "goal", save: "save", near_miss: "near miss", chance: "chance", tackle: "tackle", other: "not a highlight" };
+const CALL_PLURAL = { goal: "goals", save: "saves", near_miss: "near misses", chance: "chances", tackle: "tackles", other: "not highlights" };
+// What a reel is made of (coach.KIND): a save and a near miss are both shots.
+const KIND = { goal: "goal", save: "shot", near_miss: "shot", chance: "chance", tackle: "tackle" };
+const KINDS = [["goal", "goals"], ["shot", "shots"], ["chance", "chances"], ["tackle", "tackles"]];
+const kindOf = (c) => KIND[callFor(c)?.label] || null;
 const EVENT_COLORS = { audio: "#78aaff", goal: "#00c8ff", lull: "#9aa7a0" };
 const LIVE_SIDE = 960; // px; both detectors downscale further (640 and 384)
 const GOAL_MARGIN = 0.5; // as vision/players.py: "near" is the goal box widened by half its size
@@ -54,8 +60,8 @@ function callFlags(s) {
 
 function callsRow(c) {
   const call = callFor(c);
-  const buttons = CALLS.map(([k, label], i) => `<button class="btn small call ${call?.label === k ? "on" : ""}" data-act="call"
-    data-call="${k}" aria-pressed="${call?.label === k}" title="${label} (${i + 1})">${label}</button>`).join("");
+  const buttons = CALLS.map(([k, label, key]) => `<button class="btn small call ${call?.label === k ? "on" : ""}" data-act="call"
+    data-call="${k}" aria-pressed="${call?.label === k}" title="${label} (${key})">${label}</button>`).join("");
   return `<div class="calls-row" role="group" aria-label="Your call"><span class="lbl">Your call</span>${buttons}
     ${call ? `<button class="btn small ghost" data-act="uncall" title="Remove your call">Clear</button>` : ""}
     <button class="btn small ghost" data-act="why" title="What the detector measured at this moment">Why?</button></div>`;
@@ -133,7 +139,7 @@ function coachHtml(s, busy) {
     if (co.basis != null && basis !== co.basis) html += `<div class="status">You've made calls since. Re-tune to use them.</div>`;
     if (lines.length) html += `<ul>${lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>`;
   } else if (!calls.length) {
-    html += `<div class="muted">Press G on a goal it missed, and 1–4 on suggestions. Then re-tune.</div>`;
+    html += `<div class="muted">Tag suggestions with 1–5, or press the same keys on a moment it missed. Then re-tune.</div>`;
   }
   html += `<div class="actions">
       <button class="btn small" data-act="retune" ${!calls.length || busy ? "disabled" : ""} title="Move this recording's thresholds to agree with your calls, then re-analyse">Re-tune from my calls</button>
@@ -337,8 +343,34 @@ function goalHere() {
   makeCall(loaded.sourceId, "goal", { t: player.currentTime, select: true });
 }
 
-function callSelected(index) {
+// A number key calls the selected clip while the playhead is in it. Anywhere
+// else it tags the moment at the playhead, adding a kept clip for a highlight.
+function callKey(key) {
+  const entry = CALLS.find(([, , k]) => k === key);
+  if (!entry) return;
   const c = clipById(sel.clipId);
-  if (!c || !CALLS[index]) return;
-  makeCall(c.source_id, CALLS[index][0], { clipId: c.id });
+  const t = player.currentTime;
+  if (c && (c.source_id !== loaded.sourceId || (t >= c.start && t <= c.end))) {
+    makeCall(c.source_id, entry[0], { clipId: c.id });
+  } else if (loaded.sourceId) {
+    stopReel();
+    makeCall(loaded.sourceId, entry[0], { t, select: true });
+  }
+}
+
+function reelMix(items) {
+  const counts = Object.fromEntries(KINDS.map(([k]) => [k, 0]));
+  let untagged = 0;
+  for (const c of items) {
+    const k = kindOf(c);
+    if (k) counts[k] += 1; else untagged += 1;
+  }
+  const have = KINDS.filter(([k]) => counts[k]).map(([k, plural]) =>
+    `<span class="kind" data-kind="${k}">${counts[k]} ${counts[k] === 1 ? k : plural}</span>`);
+  if (untagged) have.push(`<span class="kind">${untagged} untagged</span>`);
+  const missing = KINDS.filter(([k]) => !counts[k]).map(([, plural]) => plural);
+  const tail = missing.length
+    ? `<span class="muted">No ${missing.length > 1 ? `${missing.slice(0, -1).join(", ")} or ${missing.at(-1)}` : missing[0]} yet. Tag them as you watch: 1 goal, 2–3 shot, 4 chance, 5 tackle.</span>`
+    : "";
+  return `${have.join(" ")} ${tail}`;
 }

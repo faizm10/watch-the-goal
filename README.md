@@ -56,10 +56,14 @@ An hour of 1080p takes about a minute to analyse on an M-series Mac. Then:
    they must clear, and what was flagged at that moment. With a player
    detector downloaded (**Analysis**, one click), players are boxed as you
    watch.
-2. Walk the suggestions with `J`/`L`. Call each one with `1`–`4` (goal, save,
-   near miss, not a highlight). Where it missed a goal, pause on it and press
-   `G`. Every call says what the detector measured there and why it did or
-   didn't suggest it.
+2. Walk the suggestions with `J`/`L` and tag each one: `1` goal, `2` save,
+   `3` near miss, `4` chance created, `5` tackle, `0` not a highlight. Saves
+   and near misses count as shots. While the recording plays, the same keys
+   tag whatever is at the playhead, adding a clip if detection missed it, so
+   you can catch tackles and chances as you watch. Every tag says what the
+   detector measured there and why it did or didn't suggest it. The Reel
+   panel counts the goals, shots, chances and tackles in your reel, and says
+   which kinds are still missing.
 3. Click **Re-tune from my calls** on the recording's card. The recording's
    bars move just far enough to agree with you, and the suggestions are
    re-ranked by resemblance to your calls. The card says what changed and how
@@ -97,11 +101,11 @@ It checks the mechanics, not real-world quality.
    | `Shift+←` / `Shift+→` | start 5 s earlier / end 5 s later |
    | `[` / `]` | set start / end at the playhead |
    | `N` | new clip around the playhead (for anything detection missed) |
-   | `1`–`4` | your call on the selected clip: goal, save, near miss, not a highlight |
-   | `G` | goal here: call a goal at the playhead (adds a clip if none covers it) |
+   | `1`–`5`, `0` | tag: goal, save, near miss, chance, tackle; `0` not a highlight. On the selected clip while the playhead is in it, otherwise at the playhead (adds a clip if none covers it) |
+   | `G` | goal here: tag a goal at the playhead |
    | `D` | live detection on / off |
    | `Space` | play / pause |
-   | `Ctrl/⌘ Z` | undo a trim or reel reorder |
+   | `Ctrl/⌘ Z` | undo a trim, reel reorder or auto-fill |
 
 5. **See what it sees, and correct it.** **◉ Live detection** (`D`) overlays
    the player while you watch. It shows each signal at the playhead against
@@ -113,18 +117,24 @@ It checks the mechanics, not real-world quality.
    boxes, turning green near a marked goal. Ticks along each timeline track
    are every raw event the detector registered, suggested or not.
 
-   Then make **calls**: press `1`–`4` on a suggestion (goal, save, near miss,
-   not a highlight), or `G` on a goal it missed. Each call explains in numbers
-   what the detector measured there and why it did or didn't suggest it
-   ("crowd noise rose +9.6 dB; here it needs +10.8 dB"). A goal or save call
-   keeps the clip, and "not a highlight" skips it. **Re-tune from my calls**
-   on the recording's card then moves that recording's bars just far enough
+   Then make **calls**: press `1`–`5` on a suggestion (goal, save, near miss,
+   chance, tackle) or `0` for not a highlight, or the same key on a moment it
+   missed. Each call explains in numbers what the detector measured there
+   and why it did or didn't suggest it ("crowd noise rose +9.6 dB; here it
+   needs +10.8 dB"). A highlight call keeps the clip, and "not a highlight"
+   skips it. A tagged tackle gets a short clip (6 s before, 4 s after); the
+   rest keep the usual buildup. **Re-tune from my calls** on the
+   recording's card then moves that recording's bars just far enough
    to agree with you. Candidates that resemble a call move up or down and
    say so ("like your goal at 46:50"). Calls download as `labels.json` for
    `scripts/eval_highlights.py`. Details: [docs/DETECTION.md](docs/DETECTION.md#6-your-calls).
 6. **Arrange.** The Reel panel lists kept clips in play order. Drag them, or
    use ▲▼. The meter tracks the 30 to 60 second sweet spot. **Preview reel**
-   plays everything back to back.
+   plays everything back to back. In a hurry? **Auto-fill from suggestions**
+   keeps the strongest suggestions until the reel runs about 45, 60 or 90
+   seconds, or keeps every suggestion. Strongest is the suggestion's rank, so
+   AI review and your calls count. It leaves clips you kept or skipped alone,
+   and one **Undo** puts them all back.
 7. **Analysis (optional).** The **Analysis** button picks a player detector
    (*None*, *YOLOX* or *RF-DETR Nano*; each is a one-click download of 36 or
    108 MB) and turns on AI review. With a detector, suggestions also say things

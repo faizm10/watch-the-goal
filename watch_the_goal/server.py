@@ -282,6 +282,12 @@ class Handler(BaseHTTPRequestHandler):
                     p.settings.update(template=template, title=title)
                     p.save()
                 return self.send_json({"ok": True})
+            if path == "/api/reel/auto":
+                target = body.get("target")
+                if target is not None and (isinstance(target, bool) or not isinstance(target, (int, float))
+                                           or not 1 <= target <= 600):
+                    raise ValueError("Reel target must be between 1 and 600 seconds, or none for every suggestion.")
+                return self.send_json(p.auto_reel(target))
             if path == "/api/order":
                 p.reorder(body.get("ids", []))
                 return self.send_json({"ok": True})

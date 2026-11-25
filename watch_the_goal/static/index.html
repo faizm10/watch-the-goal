@@ -51,7 +51,7 @@
         <div class="transport">
           <button id="play-btn" class="btn icon" aria-label="Play or pause" data-help="Play or pause the preview (Space).">▶</button>
           <span id="time-readout" class="mono">0:00.0</span>
-          <button class="btn small" id="undo-btn" disabled data-help="Undo the last trim or reel reorder (Ctrl/⌘ Z).">Undo</button>
+          <button class="btn small" id="undo-btn" disabled data-help="Undo the last trim, reel reorder or auto-fill (Ctrl/⌘ Z).">Undo</button>
           <span id="transport-note" class="muted"></span>
           <span class="spacer"></span>
           <button id="live-btn" class="btn small" aria-pressed="false" data-help="See the audio and motion signals at the playhead (D).">◉ Live detection</button>
@@ -67,7 +67,7 @@
           <span class="legend"><i class="sw candidate"></i>suggested <i class="sw kept"></i>kept <i class="sw skipped"></i>skipped <i class="tick-sw"></i>heard/saw <i class="flag-sw"></i>your call</span>
           <span class="spacer"></span>
           <label class="muted toggle" title="J/L visits suggestions strongest first (after AI review: likely goals first)"><input type="checkbox" id="best-first"> strongest first</label>
-          <span class="muted keys">J/L next · K keep · X skip · 1–4 call · G goal · D live</span>
+          <span class="muted keys">J/L next · K keep · X skip · 1–5 tag · 0 not one · D live</span>
         </div>
         <div id="timeline" class="timeline"></div>
       </div>
@@ -76,6 +76,15 @@
     <aside class="panel reel">
       <h2>Reel</h2>
       <div id="meter" class="meter"></div>
+      <div class="row auto-row">
+        <button id="auto-btn" class="btn small" disabled data-help="Keep the strongest suggestions until the reel is about this long. One Undo puts them back.">Auto-fill from suggestions</button>
+        <select id="auto-target" aria-label="Auto-fill length" data-help="How long auto-fill makes the reel, counting clips already in it.">
+          <option value="45">about 45 s</option>
+          <option value="60" selected>about 60 s</option>
+          <option value="90">about 90 s</option>
+          <option value="all">every suggestion</option>
+        </select>
+      </div>
       <ol id="reel-list" class="reel-list"></ol>
       <div class="export-box">
         <div class="row"><label for="template-select" class="muted">Template</label>

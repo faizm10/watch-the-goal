@@ -235,3 +235,17 @@ def test_marking_goals_resets_learned_tuning_but_keeps_calls(server, media):
     call(f"{url}/api/sources/{sid}/goals", "POST", {"areas": [{"x": 0, "y": .4, "w": .2, "h": .2}]})
     src = app.project.source(sid)
     assert src["tuning"] is None and src["coaching"] is None and len(src["calls"]) == 1
+
+
+def test_tagging_a_tackle_or_chance_at_the_playhead_keeps_a_clip(server, media):
+    url, app = server
+    sid = app.import_paths([str(media["long"])])["added"][0]["id"]
+    tackle = json.load(call(f"{url}/api/sources/{sid}/calls", "POST", {"label": "tackle", "t": 60}))["call"]
+    clip = app.project.clip(tackle["clip_id"])
+    assert clip["status"] == "kept" and (clip["start"], clip["end"]) == (54, 64)  # short: a tackle needs little buildup
+    assert clip["reasons"] == ["your call: tackle"]
+    chance = json.load(call(f"{url}/api/sources/{sid}/calls", "POST", {"label": "chance", "t": 100}))["call"]
+    clip = app.project.clip(chance["clip_id"])
+    assert clip["start"] == 100 - app.project.settings["pre_roll"]  # a chance keeps the usual buildup
+    assert {c["label"] for c in app.project.source(sid)["calls"]} == {"tackle", "chance"}
+    assert coach.KIND["save"] == coach.KIND["near_miss"] == "shot"

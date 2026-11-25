@@ -458,7 +458,8 @@ function renderReel() {
     <div class="total">${fmtDur(total)}</div>
     <div class="bar"><div class="band" style="left:${(30 / scale) * 100}%;width:${(30 / scale) * 100}%"></div>
       <div class="fill ${total > 60 ? "over" : ""}" style="width:${Math.min(100, (total / scale) * 100)}%"></div></div>
-    <div class="note">${note}</div>`;
+    <div class="note">${note}</div>
+    ${items.length ? `<div class="mix">${reelMix(items)}</div>` : ""}`;
   const moveFocus = document.activeElement.closest("[data-move]");
   const focusId = moveFocus?.closest(".reel-item")?.dataset.clip;
   const playingId = reelQueue ? reelQueue.ids[reelQueue.index] : null;
@@ -468,15 +469,20 @@ function renderReel() {
       return `<li class="reel-item ${c.id === sel.clipId ? "sel" : ""} ${c.id === playingId ? "playing" : ""}" draggable="true" data-clip="${c.id}">
         <span class="n" title="Drag to reorder">${i + 1}</span>
         <img src="${frameUrl(s.id, Math.min(c.anchor ?? c.start + clipLen(c) / 2, s.info.duration - 0.1), 160)}" alt="" loading="lazy">
-        <div class="t"><div>${esc(s.name)}</div><div class="s">${fmt(c.start, false)}–${fmt(c.end, false)} · ${clipLen(c).toFixed(1)}s</div></div>
+        <div class="t"><div>${kindOf(c) ? `<span class="kind" data-kind="${kindOf(c)}">${kindOf(c)}</span> ` : ""}${esc(s.name)}</div><div class="s">${fmt(c.start, false)}–${fmt(c.end, false)} · ${clipLen(c).toFixed(1)}s</div></div>
         <div class="mv"><button data-move="-1" aria-label="Move up" data-help="Move this clip earlier in the reel.">▲</button><button data-move="1" aria-label="Move down" data-help="Move this clip later in the reel.">▼</button></div>
       </li>`;
     }).join("")
-    : `<li class="reel-empty">Nothing kept yet.</li>`;
+    : `<li class="reel-empty">Nothing kept yet. Keep clips one by one, or auto-fill from the suggestions above.</li>`;
   if (focusId) $("reel-list").querySelector(`[data-clip="${focusId}"] [data-move="${moveFocus.dataset.move}"]`)?.focus({preventScroll: true});
   const exporting = data.jobs.some((j) => j.kind === "export" && j.status === "running");
   $("export-btn").disabled = !items.length || exporting;
   $("preview-reel-btn").disabled = !items.length;
+  const suggested = data.clips.filter((c) => c.origin === "detected" && c.status === "candidate").length;
+  $("auto-btn").disabled = !suggested;
+  $("auto-btn").dataset.help = suggested
+    ? `Keep the strongest of ${suggested} suggestion${suggested > 1 ? "s" : ""} until the reel is about this long. One Undo puts them back.`
+    : "No suggestions left to add. Import a long recording, or un-skip one.";
   $("preview-reel-btn").textContent = reelQueue ? "Stop preview" : "Preview reel";
 }
 
@@ -875,6 +881,22 @@ function setupZoomDrag() {
 // ---------------------------------------------------------------------------
 // Export
 
+async function autoFill() {
+  stopReel();
+  const value = $("auto-target").value;
+  try {
+    const res = await api("POST", "/api/reel/auto", { target: value === "all" ? null : Number(value) });
+    await refresh(true);
+    if (!res.kept.length) {
+      toast(res.left ? `Your reel is already ${fmtDur(res.seconds)}. Pick a longer length to add more.` : "No suggestions left to add.");
+      return;
+    }
+    const n = res.kept.length;
+    toast(`Kept ${n} suggestion${n > 1 ? "s" : ""}. The reel is now ${fmtDur(res.seconds)}. Undo puts ${n > 1 ? "them" : "it"} back.`);
+    if (reel().length) selectClip(res.kept[0]);
+  } catch (e) { toast(e.message, true); }
+}
+
 async function startExport() {
   stopReel();
   try {
@@ -957,7 +979,7 @@ async function undoEdit() {
       await seek(c.source_id, Math.max(c.start, Math.min(c.end, t)));
       render();
     }
-    toast(edit.kind === "trim" ? "Trim undone" : "Reel order restored");
+    toast({ trim: "Trim undone", status: "Auto-fill undone" }[edit.kind] || "Reel order restored");
   } catch (err) { toast(err.message, true); await refresh(true); }
 }
 function wire() {
@@ -1169,6 +1191,11 @@ function wire() {
   $("play-btn").addEventListener("click", () => { if (player.paused) player.play().catch(() => {}); else { player.pause(); stopReel(); } });
   $("new-clip-btn").addEventListener("click", newClipHere);
   $("export-btn").addEventListener("click", startExport);
+  $("auto-btn").addEventListener("click", autoFill);
+  try { $("auto-target").value = localStorage.getItem("wtg-auto-target") || "60"; } catch { /* private mode */ }
+  $("auto-target").addEventListener("change", (e) => {
+    try { localStorage.setItem("wtg-auto-target", e.target.value); } catch { /* private mode */ }
+  });
   $("preview-reel-btn").addEventListener("click", async () => {
     if (reelQueue) return stopReel();
     const ids = reel().map((c) => c.id);
@@ -1220,7 +1247,7 @@ function wire() {
     else if (k === "n" || k === "N") newClipHere();
     else if (k === "g" || k === "G") goalHere();
     else if (k === "d" || k === "D") setLive(!live.on);
-    else if (["1", "2", "3", "4"].includes(k)) callSelected(Number(k) - 1);
+    else if (/^[0-5]$/.test(k)) callKey(k);
     else if (k === "ArrowLeft" && e.shiftKey) { e.preventDefault(); nudge("start", -5); }
     else if (k === "ArrowRight" && e.shiftKey) { e.preventDefault(); nudge("end", 5); }
     else if (k === "ArrowLeft") { e.preventDefault(); player.currentTime = Math.max(0, player.currentTime - 2); }

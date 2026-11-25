@@ -143,7 +143,10 @@ minutes per recording, so it is off by default.
 ## 6. Your calls
 
 A call is you saying what really happened at a moment: goal, save, near
-miss, or not a highlight. [`watch_the_goal/coach.py`](../watch_the_goal/coach.py)
+miss, chance created, tackle, or not a highlight. Everything but the last
+counts as a highlight, so a tackle that detection missed can lower a bar
+too. Tackles are often quiet, though, so many will get the "too little crowd
+noise to learn from" note instead. [`watch_the_goal/coach.py`](../watch_the_goal/coach.py)
 learns from calls for **one recording at a time**. Nothing carries over to
 other recordings, and the defaults never change.
 
