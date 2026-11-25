@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Watch the Goal</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%23f4f4f0'/><path d='M16 9l6 4.5-2.3 7H12.3L10 13.5z' fill='%23111'/></svg>">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="ball" aria-hidden="true"></span>
+      <span>Watch the Goal</span>
+    </div>
+    <div class="top-actions">
+      <label class="btn primary" title="Copy videos into the workspace and import them">
+        <input id="file-input" type="file" accept="video/*,.mov,.mp4,.m4v,.mkv" multiple hidden>
+        Add videos
+      </label>
+      <form id="path-form" class="path-form" title="Import files or a folder in place, without copying">
+        <input id="path-input" type="text" placeholder="…or paste a file/folder path" spellcheck="false">
+        <button class="btn" type="submit">Import</button>
+      </form>
+      <button id="settings-btn" class="btn ghost" title="Player detector and AI review (both optional)">Analysis</button>
+      <button id="reset-btn" class="btn ghost" title="Clear this project (source files are not touched)">New project</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="panel footage">
+      <h2>Footage</h2>
+      <div id="sources" class="sources"></div>
+      <div id="drop-hint" class="drop-hint">
+        <strong>Drop match videos here</strong>
+        <span>A full match from a tripod, or a few phone clips. MP4 and MOV.</span>
+      </div>
+    </aside>
+
+    <section class="stage">
+      <div class="player-wrap">
+        <video id="player" playsinline preload="metadata"></video>
+        <canvas id="composition" hidden aria-label="Reel framing preview"></canvas>
+        <canvas id="live-overlay" hidden aria-hidden="true"></canvas>
+        <div id="live-hud" class="live-hud" hidden aria-live="off"></div>
+        <div id="player-empty" class="player-empty">Import footage to start</div>
+        <div id="player-badge" class="player-badge" hidden></div>
+      </div>
+      <div class="transport">
+        <button id="play-btn" class="btn icon" title="Play / pause (Space)">▶</button>
+        <span id="time-readout" class="mono">0:00.0</span>
+        <button class="btn small" id="undo-btn" disabled title="Undo trim or reorder (Ctrl/⌘ Z)">Undo</button>
+        <span id="transport-note" class="muted"></span>
+        <span class="spacer"></span>
+        <button id="live-btn" class="btn small" aria-pressed="false" title="Show what the detector sees and hears at the playhead (D)">◉ Live detection</button>
+        <button id="missed-btn" class="btn small" title="Call a goal at the playhead. If no clip covers it, one is added with its buildup (G)" disabled>⚑ Goal here</button>
+        <button id="new-clip-btn" class="btn" title="Make a clip around the playhead (N)" disabled>+ Clip here</button>
+      </div>
+      <div id="coach-note" class="coach-note" hidden aria-live="polite"></div>
+      <div id="editor" class="editor" hidden></div>
+      <div class="timeline-wrap">
+        <div class="timeline-head">
+          <h2>Timeline</h2>
+          <span class="legend"><i class="sw candidate"></i>suggested <i class="sw kept"></i>kept <i class="sw skipped"></i>skipped <i class="tick-sw"></i>heard/saw <i class="flag-sw"></i>your call</span>
+          <span class="spacer"></span>
+          <label class="muted toggle" title="J/L visits suggestions strongest first (after AI review: likely goals first)"><input type="checkbox" id="best-first"> strongest first</label>
+          <span class="muted keys">J/L next · K keep · X skip · 1–4 call · G goal · D live</span>
+        </div>
+        <div id="timeline" class="timeline"></div>
+      </div>
+    </section>
+
+    <aside class="panel reel">
+      <h2>Reel</h2>
+      <div id="meter" class="meter"></div>
+      <ol id="reel-list" class="reel-list"></ol>
+      <div class="export-box">
+        <div class="row"><label for="template-select" class="muted">Template</label>
+          <select id="template-select"><option value="plain">Original footage</option><option value="recap">Match recap</option></select>
+        </div>
+        <button class="btn small" id="details-btn" hidden>Edit title &amp; scoreboards</button>
+        <div class="row">
+          <label for="layout-select" class="muted">Shape</label>
+          <select id="layout-select">
+            <option value="auto">Auto (match most clips)</option>
+            <option value="landscape">Landscape 16:9</option>
+            <option value="portrait">Portrait 9:16</option>
+            <option value="square">Square 1:1</option>
+          </select>
+        </div>
+        <div class="row">
+          <button id="preview-reel-btn" class="btn" disabled>Preview reel</button>
+          <button id="export-btn" class="btn primary grow" disabled>Export MP4</button>
+        </div>
+        <div aria-live="polite" id="export-status" class="export-status"></div>
+      </div>
+      <div id="exports" class="exports"></div>
+    </aside>
+  </main>
+
+  <dialog id="recap-dialog" class="goal-dialog">
+    <form id="recap-form"><h3>Match recap</h3>
+      <label>Opening title <input id="recap-title" maxlength="64" placeholder="Optional · 2-second card"></label>
+      <p class="muted">Each recording has its own scoreboard. Leave fields blank to omit them.</p>
+      <div id="recap-sources"></div>
+      <div class="row"><span class="spacer"></span><button type="button" class="btn" id="recap-cancel">Cancel</button>
+      <button class="btn primary">Save recap</button></div>
+    </form>
+  </dialog>
+  <dialog id="goal-dialog" class="goal-dialog">
+    <form method="dialog">
+      <h3>Mark the goals</h3>
+      <p class="muted">Drag a box around each goal mouth (up to two). Movement inside these boxes counts as evidence. Optional, and only useful for fixed, wide footage.</p>
+      <div class="goal-canvas-wrap"><img id="goal-frame" alt="Frame from the recording"><div id="goal-boxes"></div></div>
+      <div class="row">
+        <button type="button" id="goal-clear" class="btn ghost">Clear</button>
+        <span class="spacer"></span>
+        <button value="cancel" class="btn">Cancel</button>
+        <button type="button" id="goal-save" class="btn primary">Save &amp; re-analyse</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settings-dialog" class="goal-dialog settings-dialog">
+    <form method="dialog">
+      <h3>Analysis</h3>
+      <p class="muted">Both are optional. Without them, suggestions come from crowd noise, motion and marked goal areas. Everything runs on this computer.</p>
+      <fieldset>
+        <legend>Player detector</legend>
+        <p class="muted">Counts players near a marked goal and players bunched together, and ignores goal-box motion caused by someone right in front of the camera. Adds about 1–2 s per minute of footage. Re-analyse a recording to use it.</p>
+        <select id="detector-select">
+          <option value="none">Off (crowd noise and motion only)</option>
+          <option value="yolox">YOLOX-S (OpenCV Zoo, Apache-2.0)</option>
+          <option value="rfdetr-nano">RF-DETR Nano (Roboflow, Apache-2.0)</option>
+        </select>
+        <div id="model-status" class="muted small"></div>
+      </fieldset>
+      <fieldset>
+        <legend>AI review</legend>
+        <p class="muted">After analysis, shows the strongest suggestions to a vision model running in <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a> on this computer. It labels each one (likely goal, save, near miss…), reorders them and proposes a trim. It never changes clips you have kept, skipped or edited.</p>
+        <label class="row"><input type="checkbox" id="review-enabled"> Review suggestions after analysis</label>
+        <div class="row"><label for="review-model" class="muted">Model</label><input id="review-model" type="text" spellcheck="false"></div>
+        <div class="row"><label for="review-endpoint" class="muted">Ollama</label><input id="review-endpoint" type="text" spellcheck="false"></div>
+        <div class="row"><label for="review-max" class="muted">Suggestions to check</label><input id="review-max" type="number" min="1" max="20"></div>
+        <div class="row"><button type="button" id="review-check" class="btn small">Check model</button><span id="review-status" class="muted small"></span></div>
+      </fieldset>
+      <div class="row">
+        <span class="spacer"></span>
+        <button value="cancel" class="btn">Cancel</button>
+        <button type="button" id="settings-save" class="btn primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="/static/composition.js"></script>
+  <script src="/static/coach.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
