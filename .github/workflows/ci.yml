@@ -80,7 +80,7 @@ jobs:
             uv run --group e2e python scripts/e2e_ui.py demo/footage/sunday_match_wide.mp4 demo/footage/phone* \
               --goal 70 --recap --layout "$shape" --out "bench/e2e/recap-$shape"
           done
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: e2e-screenshots
