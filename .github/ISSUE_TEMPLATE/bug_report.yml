@@ -1,0 +1,42 @@
+name: Bug report
+description: Something doesn't work as it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Import a 60-minute 1080p MP4 by path
+        2. Click Trim match
+        3. ...
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `watch-the-goal --version`, or the commit you're on.
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System
+      placeholder: macOS 15 on M2, Chrome 140, ffmpeg 8.0
+  - type: textarea
+    id: footage
+    attributes:
+      label: About the footage
+      description: Camera, length, resolution and codec. Please don't attach footage of people who haven't agreed to share it.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Run with `WTG_DEBUG=1` for full tracebacks.
+      render: text
