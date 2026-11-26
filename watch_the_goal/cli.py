@@ -68,7 +68,8 @@ def run_detect(argv: list[str]) -> int:
             w0, w1 = ai.window_for(m["start"], m["end"], m["anchor"], info.duration)
             try:
                 m["review"] = {"status": "done", "window": [w0, w1],
-                               **ai.review_window(client, info.path, w0, w1, ai.DEFAULTS["frames"]).to_dict()}
+                               **ai.review_moment(client, info.path, w0, w1, ai.DEFAULTS["frames"], m["anchor"],
+                                                  info.duration).to_dict()}
             except ai.ReviewError as exc:
                 m["review"] = {"status": "failed", "message": str(exc)}
     json.dump({"video": info.path, "duration": info.duration, "stats": result.stats,

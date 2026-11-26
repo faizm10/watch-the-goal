@@ -7,6 +7,10 @@ All notable changes to Watch the Goal are listed here. The format follows
 ## [Unreleased]
 
 ### Added
+- AI review asks a second, narrower question about each moment: are players
+  celebrating a goal? A "yes" makes it a likely goal, with what the model saw
+  as the reason. In testing on a real match it never called a non-goal a
+  celebration; it adds about 30 s per suggestion.
 - Edit, remove and add clips from the Reel panel: **✎** opens a clip in the
   editor, **✕** takes it out of the reel, and **+ Clip at playhead** adds one.
 - A **Suggestions** list under the reel shows every suggested moment not yet

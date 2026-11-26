@@ -173,6 +173,33 @@ attack started earlier. Fitting the rule to this one goal would be
 overfitting. The contact sheet and the three cuts are saved locally in
 `bench/before_after/`.
 
+### Celebration check (2026-11-26)
+
+AI review's second question ("are players celebrating a goal?", see
+DETECTION.md §5). Veo match, baseline detector, the 10 strongest suggestions,
+labels from the calls in DETECTION.md §6 (goals 46:50 and 56:12, chance
+51:35, tackles 15:16 and 42:50, plus the 4 "other" windows):
+
+| | Labels right | Goal ranks after review | Non-goals called a celebration | Review s / min |
+| --- | --- | --- | --- | --- |
+| First look only | 2 of 6 | #1, #3 | – | 5.8 |
+| With the celebration check | 3 of 6 | #1, #3 | 0 of 8 | 11.8 |
+
+The first look called both goals near misses. The check found the
+celebration after 46:50 ("players in orange jerseys running towards the
+corner and raising their arms") and missed the one after 56:12. Recall
+depends on the exact frames: over four samplings each goal was found 3 and 1
+times. No sampling called a non-goal a celebration (0 of 32), and on the drawn
+match it said "no" every time, so it never changed a rank there. Separately,
+the first look's labels on the drawn match differed between two runs with
+the same prompt and temperature 0, so treat single runs of the reviewer as
+noisy.
+
+```sh
+uv run python scripts/eval_highlights.py path/to/veo.labels.json demo/footage/labels.json \
+  --detectors none --review --review-max 10 --out bench/celebration
+```
+
 ## 3. Tracking (ByteTrack)
 
 `scripts/eval_tracking.py` with RF-DETR Nano at 10 fps and ByteTrack from
@@ -242,8 +269,9 @@ Defaults stay **`detector: none`** and **AI review off**.
   more people; YOLOX is faster. Either is a reasonable opt-in.
 - **AI review.** Its ranking helped on real footage (goal and save to #1) and
   hurt on drawn footage (a goal to #4). Its labels are good at "this isn't a
-  highlight" and unreliable on goals. It needs an 8 GB model and about 30 s
-  per suggestion. Opt-in, shown as a second opinion, never overriding the
+  highlight" and unreliable on goals; the celebration check now recognises
+  some goals and has never invented one. It needs an 8 GB model and about a
+  minute per suggestion. Opt-in, shown as a second opinion, never overriding the
   user, and now only allowed to lengthen clips.
 - **ByteTrack.** Not integrated (section 3).
 - **Buildup.** The one real goal still starts 4.5 s late with every

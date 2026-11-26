@@ -39,6 +39,7 @@ import argparse
 import json
 import sys
 import time
+import zlib
 from pathlib import Path
 
 import numpy as np
@@ -131,11 +132,13 @@ def run_review(clips: list[dict], labels: dict, info, cfg: dict, cache: dict, ca
     t_spent, agree, judged, failed = 0.0, 0, 0, 0
     for c in review.pick(clips, cfg["max_candidates"]):
         w0, w1 = review.window_for(c["start"], c["end"], c["anchor"], info.duration)
-        key = f"{Path(info.path).name}|{w0}|{w1}|{cfg['model']}|{cfg['frames']}"
+        prompts = zlib.crc32((review.PROMPT + review.CELEBRATION_PROMPT + str(review.CELEBRATION_AFTER)).encode())
+        key = f"{Path(info.path).name}|{w0}|{w1}|{c['anchor']}|{cfg['model']}|{cfg['frames']}|{prompts}"
         if key not in cache:
             t0 = time.time()
             try:
-                cache[key] = {"status": "done", **review.review_window(client, info.path, w0, w1, cfg["frames"]).to_dict()}
+                cache[key] = {"status": "done", **review.review_moment(client, info.path, w0, w1, cfg["frames"],
+                                                                       c["anchor"], info.duration).to_dict()}
             except review.ReviewError as exc:
                 cache[key] = {"status": "failed", "message": str(exc)}
             cache[key]["seconds"] = round(time.time() - t0, 1)

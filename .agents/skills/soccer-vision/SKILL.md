@@ -98,6 +98,7 @@ Integrate only if tracked counts change which candidates clear the ranking thres
 - The default stays `detector: "none"` and AI review off unless a benchmark on real labelled footage shows a clear gain. Write the numbers into `docs/BENCHMARKS.md`.
 - Suggestions explain themselves with reasons ("7 players near the left goal (usually 3)"), never confidence scores.
 - AI review may rerank and propose trims; it never overwrites a clip the user touched, and any failure leaves the detector's suggestions as they were.
+- Vision-model answers depend on exactly which frames it sees. Before trusting a prompt change, run it on at least two frame samplings (shift the times by a second or two) and report both. Narrow yes/no questions (e.g. the celebration check) beat long instructions on a 9B model; see "Tried and dropped" in docs/DETECTION.md.
 - New model files: pin URL, SHA-256, size and licence in `watch_the_goal/vision/models.py` and `THIRD_PARTY_NOTICES.md`.
 
 ## Selected-clip requests
