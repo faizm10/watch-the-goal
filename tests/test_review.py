@@ -86,17 +86,26 @@ def test_config_fills_defaults_and_clamps():
 class FakeClient:
     """Answers per window start; a callable answer can raise or have side effects."""
 
-    def __init__(self, answers, check_error=None):
+    def __init__(self, answers, check_error=None, celebrations=None):
         self.answers = answers
         self.check_error = check_error
+        self.celebrations = celebrations or {}  # moment -> "yes", "no", "unsure" or a callable
         self.prompts = []
+        self.checks = []
 
     def check(self):
         if self.check_error:
             raise self.check_error
         return {}
 
-    def review(self, prompt, images):
+    def review(self, prompt, images, schema=review.SCHEMA):
+        if schema is review.CELEBRATION_SCHEMA:
+            t = float(prompt.split("possible shot at ")[1].split(" s")[0])
+            self.checks.append((t, len(images)))
+            answer = self.celebrations.get(round(t), "no")
+            if callable(answer):
+                return answer(t)
+            return json.dumps({"celebrating": answer, "reason": f"seen at {t + 3:.1f}s"})
         self.prompts.append((prompt, len(images)))
         w0 = float(prompt.split("between ")[1].split(" s")[0])
         answer = self.answers[round(w0)]
@@ -333,6 +342,44 @@ def test_projects_saved_before_this_version_still_load(tmp_path, media):
     p.apply_detection("src_1", [Moment(80, 68, 85, ["crowd noise"], ["audio"], 3, rank=1)])
     assert sorted(c["id"] for c in p.clips.values() if c["origin"] == "manual") == ["clip_2"]
     assert any(c.get("rank") == 1 and c["anchor"] == 80 for c in p.clips.values())
+
+
+def test_celebration_makes_a_likely_goal(project):
+    p, src = project
+    client = FakeClient({
+        10: {"label": "near_miss", "start": 24, "end": 34, "reason": "shot wide at 29s"},
+        50: {"label": "near_miss", "start": 62, "end": 74, "reason": "shot wide at 70s"},
+        90: {"label": "other", "start": 102, "end": 114, "reason": "throw-in"},
+    }, celebrations={30: "yes", 70: "unsure", 110: "no"})
+    review.review_source(p, src["id"], {"frames": 4}, client=client)
+    c = clips_by_anchor(p)
+    assert c[30]["review"]["label"] == "likely_goal" and c[30]["review"]["celebration"] == "yes"
+    assert c[30]["review"]["reason"] == "players celebrate: seen at 33.0s"
+    assert (c[70]["review"]["label"], c[70]["review"]["celebration"]) == ("near_miss", "unsure")
+    assert (c[110]["review"]["label"], c[110]["review"]["celebration"]) == ("other", "no")
+    assert [c[a]["rank"] for a in (30, 70, 110)] == [1, 2, 3]
+    # Seven bigger frames from just before to 12 s after each moment, inside the 130 s recording.
+    assert sorted(client.checks) == [(30, 7), (70, 7), (110, 7)]
+
+
+def test_a_failed_celebration_check_keeps_the_first_look(project):
+    p, src = project
+
+    def slow(t):
+        raise review.Timeout("too slow")
+
+    client = FakeClient({
+        10: {"label": "near_miss", "start": 24, "end": 34, "reason": "shot wide at 29s"},
+        50: {"label": "save", "start": 62, "end": 74, "reason": "keeper dives at 70s"},
+        90: {"label": "other", "start": 102, "end": 114, "reason": "throw-in"},
+    }, celebrations={30: slow, 70: lambda t: "not json", 110: lambda t: json.dumps({"celebrating": "maybe"})})
+    summary = review.review_source(p, src["id"], {"frames": 4}, client=client)
+    assert summary["reviewed"] == 3 and summary["failed"] == 0
+    c = clips_by_anchor(p)
+    assert [c[a]["review"]["label"] for a in (30, 70, 110)] == ["near_miss", "save", "other"]
+    assert not any("celebration" in c[a]["review"] for a in (30, 70, 110))
+    assert review.celebration_times(120, 130) == [118, 120, 122, 124, 126, 129]
+    assert review.celebration_times(1, 130)[:2] == [1, 3]  # nothing before the recording starts
 
 
 def test_ai_trims_only_extend_the_clip(project):

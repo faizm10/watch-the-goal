@@ -126,8 +126,10 @@ very welcome.
 - Suggestions come from sound and motion. The optional detector finds people,
   not the ball. Quiet goals are easy to miss; indoor domes and people walking
   past the lens cause false alarms.
-- AI review is slow (about 30 s per suggestion) and often wrong on distant
-  footage. Treat it as a second opinion.
+- AI review is slow (about a minute per suggestion) and often wrong on distant
+  footage. Treat it as a second opinion. When it sees players celebrate it
+  marks the suggestion a likely goal; it can miss a celebration, but in
+  testing it never saw one that wasn't there.
 - Multiple files are separate recordings; there's no automatic syncing.
 - Dropped files are copied into the workspace. For big match files, paste the
   path instead so it's read in place.

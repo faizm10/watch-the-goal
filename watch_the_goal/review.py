@@ -48,6 +48,13 @@ MAX_WINDOW = 40.0
 MIN_CLIP = 3.0
 MAX_REASON = 240
 FRAME_SIDE = 768
+# A second, narrower question: are players celebrating around the finish?
+# On real footage the model can't see the ball go in, but it can see a
+# celebration, given bigger frames from around the moment. The detector's
+# moment can be a little late, so the frames start just before it.
+CELEBRATION_AFTER = (-2, 0, 2, 4, 6, 9, 12)  # seconds from the moment
+CELEBRATION_SIDE = 1024
+CELEBRATION_ANSWERS = ("yes", "no", "unsure")
 
 SCHEMA = {
     "type": "object",
@@ -75,6 +82,21 @@ The {n} images are frames in time order from one camera, between {w0:.1f} s and 
 Answer with JSON only, like {{"label": "near_miss", "start": {ex0:.1f}, "end": {ex1:.1f}, "reason": "..."}}."""
 
 
+CELEBRATION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "celebrating": {"type": "string", "enum": list(CELEBRATION_ANSWERS)},
+        "reason": {"type": "string"},
+    },
+    "required": ["celebrating", "reason"],
+}
+
+CELEBRATION_PROMPT = """These {n} frames come from amateur soccer footage filmed from the sideline, in time order ({stamps} s), just after a possible shot at {t:.1f} s.
+Are players celebrating a goal? Celebrating looks like: several players of one team running together, jumping, raising their arms, hugging or high-fiving, or running towards the corner or the bench, while the other team stands still or the goalkeeper fetches the ball from the net.
+Ordinary play, players jogging back into position, a goal kick, a corner or a throw-in are not a celebration.
+Answer with JSON only: {{"celebrating": "yes" | "no" | "unsure", "reason": "one sentence citing frame times"}}."""
+
+
 class ReviewError(Exception):
     """The reviewer couldn't be used; baseline suggestions stay as they were."""
 
@@ -97,9 +119,13 @@ class Verdict:
     start: float
     end: float
     reason: str
+    celebration: str | None = None  # the celebration check's answer, if it ran
 
     def to_dict(self) -> dict:
-        return {"label": self.label, "start": self.start, "end": self.end, "reason": self.reason}
+        out = {"label": self.label, "start": self.start, "end": self.end, "reason": self.reason}
+        if self.celebration is not None:
+            out["celebration"] = self.celebration
+        return out
 
 
 # --------------------------------------------------------------------------
@@ -247,12 +273,12 @@ class OllamaClient:
         return {"model": self.model, "capabilities": caps,
                 "license": (info.get("license") or "").strip().splitlines()[0:1]}
 
-    def review(self, prompt: str, images: list[bytes]) -> str:
+    def review(self, prompt: str, images: list[bytes], schema: dict = SCHEMA) -> str:
         body = {
             "model": self.model,
             "stream": False,
             "think": False,
-            "format": SCHEMA,
+            "format": schema,
             "keep_alive": "10m",
             "options": {"temperature": 0, "num_ctx": 16384},
             "messages": [{"role": "user", "content": prompt,
@@ -274,6 +300,50 @@ def review_window(client, path: str, w0: float, w1: float, n_frames: int, instru
     prompt = PROMPT.format(n=len(images), w0=w0, w1=w1, stamps=", ".join(f"{t:.1f}" for t in times),
                            ex0=max(w0, mid - 8), ex1=min(w1, mid + 4))
     return validate(client.review(prompt + instruction, images), w0, w1)
+
+
+def celebration_times(t: float, duration: float) -> list[float]:
+    return [round(t + d, 2) for d in CELEBRATION_AFTER if 0 <= t + d < duration - 0.5]
+
+
+def check_celebration(client, path: str, t: float, duration: float) -> tuple[str, str] | None:
+    """Ask whether players celebrate just after ``t``: ``(answer, reason)``,
+    or None if the frames or the answer are unusable."""
+    times = celebration_times(t, duration)
+    images = render_frames(path, times, max_side=CELEBRATION_SIDE) if times else []
+    if not images:
+        return None
+    prompt = CELEBRATION_PROMPT.format(n=len(images), stamps=", ".join(f"{x:.1f}" for x in times), t=t)
+    try:
+        obj = json.loads(client.review(prompt, images, schema=CELEBRATION_SCHEMA))
+    except (json.JSONDecodeError, InvalidResponse):
+        return None
+    answer = obj.get("celebrating") if isinstance(obj, dict) else None
+    reason = obj.get("reason") if isinstance(obj, dict) else None
+    if answer not in CELEBRATION_ANSWERS or not isinstance(reason, str) or not reason.strip():
+        return None
+    reason = " ".join(reason.split())
+    return answer, reason[: MAX_REASON - 1].rstrip() + "…" if len(reason) > MAX_REASON else reason
+
+
+def review_moment(client, path: str, w0: float, w1: float, n_frames: int, anchor: float | None,
+                  duration: float) -> Verdict:
+    """The window review, then the celebration check at the moment. Players
+    celebrating makes it a likely goal whatever the first look said; in
+    testing the first look called both real goals near misses."""
+    verdict = review_window(client, path, w0, w1, n_frames)
+    if anchor is None:
+        return verdict
+    try:
+        found = check_celebration(client, path, anchor, duration)
+    except Timeout:
+        found = None
+    if found is None:
+        return verdict
+    verdict.celebration = found[0]
+    if found[0] == "yes" and verdict.label != "likely_goal":
+        verdict.label, verdict.reason = "likely_goal", f"players celebrate: {found[1]}"
+    return verdict
 
 
 # --------------------------------------------------------------------------
@@ -339,7 +409,7 @@ def review_source(project, source_id: str, settings: dict | None,
         t0 = time.time()
         record = {"window": [w0, w1], "model": cfg["model"]}
         try:
-            verdict = review_window(client, src["path"], w0, w1, cfg["frames"])
+            verdict = review_moment(client, src["path"], w0, w1, cfg["frames"], snap.get("anchor"), duration)
             record.update(status="done", **verdict.to_dict())
         except Unavailable as exc:
             # The server went away: stop, keep what we have.

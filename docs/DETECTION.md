@@ -149,15 +149,25 @@ only: the endpoint must be a loopback address.
   testing its trims cut the buildup or the reaction as often as they added to
   them. Clips you've kept, skipped or trimmed are never
   touched, including when you edit them while the review is running.
+- **Celebration check:** a second, narrower question about the same
+  moment: 7 frames from 2 s before to 12 s after it, at 1024 px, asking only
+  whether players are celebrating a goal (running together, arms up,
+  hugging, the keeper fetching the ball from the net). A "yes" makes the
+  suggestion a likely goal, with the model's description as the reason
+  ("players celebrate: …"); "no" and "unsure" change nothing. The model
+  can't see the ball go in on wide amateur footage, but it can see a
+  celebration. It adds about 30 s per suggestion.
 - **Failure:** model missing, Ollama not running, a timeout or an invalid
   answer leave every suggestion exactly as detection made it, and the source
-  card says what happened.
+  card says what happened. A failed celebration check keeps the first look.
 
-Tested with Qwen3.5 9B (Apache-2.0). It takes about 30 s per suggestion on an
-Apple M4. On real footage it recognised ordinary play and a save reliably and
-moved the one real goal to the top, but called that goal a near miss; on the
-drawn demo match it got most labels wrong. It needs an 8 GB model and a few
-minutes per recording, so it is off by default.
+Tested with Qwen3.5 9B (Apache-2.0). It takes about a minute per suggestion
+on an Apple M4, half of it the celebration check. On real footage it
+recognised ordinary play and a save reliably and moved the one real goal to
+the top, but its first look called that goal a near miss; the celebration
+check then marks it a likely goal (BENCHMARKS.md). On the drawn demo match it
+got most labels wrong. It needs an 8 GB model and several minutes per
+recording, so it is off by default.
 
 ## 6. Your calls
 
@@ -259,6 +269,35 @@ filmed at night with a quiet microphone, so crowd noise found only 6
 moments. The camera's movement adds the attacks that ended in a stoppage.
 Spot checks show a mix of shots, chances and ordinary build-up that ran
 out, so tag them as you go.
+
+### Tried and dropped (2026-11)
+
+Measured on the Veo match (2 goals, a chance, 2 tackles and 4 "not a
+highlight" from the calls above), 10 strongest suggestions, Qwen3.5 9B:
+
+- **Restart frames for the AI.** Four extra frames 15 to 60 s after the
+  moment, so the model could see a kick-off from the centre spot (a goal) or
+  a goal kick (not). On this footage the camera stays at the goal end and
+  never shows the centre circle, and the second goal came near full time.
+  Labels right fell from 2 of 6 to 1 of 6 and the second goal dropped from
+  #3 to #34.
+- **Soccer cues in the main prompt** (ball in the net, keeper fetching it,
+  how celebrations look): 1 of 6 labels right instead of 2, ranks unchanged.
+  The narrow celebration question above worked where this didn't.
+- **Celebration frames.** The answer depends on exactly which frames the
+  model sees. Across four samplings each goal got a "yes" 3 and 1 times out
+  of 4, and the eight other moments never did (0 of 32, plus 0 of 4 on the
+  drawn match). So a "yes" is trusted and a "no" means nothing.
+- **Referee whistles.** A whistle is easy to find (a steady 3–4.5 kHz tone
+  holding nearly all the energy in that band): 36 in the match, including
+  half time and one 6 s after the second goal. But whistles also come for
+  fouls and offsides, and whether one followed a moment didn't separate
+  goals from the rest.
+- **Following the play in portrait.** A 9:16 crop that pans with the action,
+  from motion once the camera's pan is taken out (or from RF-DETR player
+  boxes), in the spirit of AutoFlip. It tracked play on the drawn match but
+  on the Veo goal it framed empty grass during the goalmouth scramble and the
+  celebration. Without finding the ball it isn't good enough to ship.
 
 ## 8. Where to improve it
 
