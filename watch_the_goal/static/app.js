@@ -474,20 +474,61 @@ function renderReel() {
         <span class="n" title="Drag to reorder">${i + 1}</span>
         <img src="${frameUrl(s.id, Math.min(c.anchor ?? c.start + clipLen(c) / 2, s.info.duration - 0.1), 160)}" alt="" loading="lazy">
         <div class="t"><div>${kindOf(c) ? `<span class="kind" data-kind="${kindOf(c)}">${kindOf(c)}</span> ` : ""}${esc(s.name)}</div><div class="s">${fmt(c.start, false)}–${fmt(c.end, false)} · ${clipLen(c).toFixed(1)}s</div>${recap && c.caption ? `<div class="cap">“${esc(c.caption)}”</div>` : ""}</div>
-        <div class="mv"><button data-move="-1" aria-label="Move up" data-help="Move this clip earlier in the reel.">▲</button><button data-move="1" aria-label="Move down" data-help="Move this clip later in the reel.">▼</button></div>
+        <div class="ctl"><button data-reel="edit" aria-label="Edit" data-help="Trim this clip in the editor.">✎</button><button data-move="-1" aria-label="Move up" data-help="Move this clip earlier in the reel.">▲</button><button data-reel="remove" aria-label="Remove from reel" data-help="Take this clip out of the reel. It goes back to the suggestions.">✕</button><button data-move="1" aria-label="Move down" data-help="Move this clip later in the reel.">▼</button></div>
       </li>`;
     }).join("")
-    : `<li class="reel-empty">Nothing kept yet. Keep clips one by one, or auto-fill from the suggestions above.</li>`;
+    : `<li class="reel-empty">Nothing kept yet. Add suggestions below, auto-fill, or add a clip at the playhead.</li>`;
   if (focusId) $("reel-list").querySelector(`[data-clip="${focusId}"] [data-move="${moveFocus.dataset.move}"]`)?.focus({preventScroll: true});
   const exporting = data.jobs.some((j) => j.kind === "export" && j.status === "running");
   $("export-btn").disabled = !items.length || exporting;
   $("preview-reel-btn").disabled = !items.length;
+  renderSuggestions();
+  $("reel-add-btn").disabled = !sel.sourceId;
   const suggested = data.clips.filter((c) => c.origin === "detected" && c.status === "candidate").length;
   $("auto-btn").disabled = !suggested;
   $("auto-btn").dataset.help = suggested
     ? `Keep the strongest of ${suggested} suggestion${suggested > 1 ? "s" : ""} until the reel is about this long. One Undo puts them back.`
     : "No suggestions left to add. Import a long recording, or un-skip one.";
   $("preview-reel-btn").textContent = reelQueue ? "Stop preview" : "Preview reel";
+}
+
+// Everything not yet in the reel or skipped, strongest first.
+function suggestions() {
+  const index = new Map(data.sources.map((s, i) => [s.id, i]));
+  const rank = (c) => (c.rank != null ? c.rank : 1e6);
+  return data.clips.filter((c) => c.status === "candidate")
+    .sort((a, b) => rank(a) - rank(b) || index.get(a.source_id) - index.get(b.source_id) || a.start - b.start);
+}
+
+function renderSuggestions() {
+  const items = suggestions();
+  $("suggest-box").hidden = !items.length;
+  $("suggest-count").textContent = items.length ? `· ${items.length} not in the reel` : "";
+  $("add-all-btn").disabled = !items.some((c) => c.origin === "detected");
+  $("suggest-list").innerHTML = items.map((c) => {
+    const s = srcById(c.source_id);
+    const rv = c.review?.status === "done" ? ` · AI: ${LABEL_TEXT[c.review.label] || c.review.label}` : "";
+    return `<li class="reel-item suggest-item ${c.id === sel.clipId ? "sel" : ""}" data-clip="${c.id}">
+      <span class="n" title="${c.rank != null ? "Rank among this recording's suggestions, strongest first" : ""}">${c.rank != null ? "#" + c.rank : ""}</span>
+      <img src="${frameUrl(s.id, Math.min(c.anchor ?? c.start + clipLen(c) / 2, s.info.duration - 0.1), 160)}" alt="" loading="lazy">
+      <div class="t"><div title="${esc(c.reasons.join("; "))}">${esc(c.reasons[0] || s.name)}${esc(rv)}</div><div class="s">${fmt(c.start, false)}–${fmt(c.end, false)} · ${clipLen(c).toFixed(1)}s</div></div>
+      <button class="btn small add" data-add aria-label="Add to reel" data-help="Add this clip to the reel.">+</button>
+    </li>`;
+  }).join("");
+}
+
+function editClip(id) {
+  stopReel();
+  selectClip(id);
+  const ed = $("editor");
+  ed.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  $("h-start")?.focus({ preventScroll: true });
+}
+
+function removeFromReel(id) {
+  stopReel();
+  patchClip(id, { status: "candidate" });
+  toast("Removed from the reel. It's back in Suggestions.");
 }
 
 function renderExports() {
@@ -897,9 +938,8 @@ function setupZoomDrag() {
 // ---------------------------------------------------------------------------
 // Export
 
-async function autoFill() {
+async function autoFill(value = $("auto-target").value) {
   stopReel();
-  const value = $("auto-target").value;
   try {
     const res = await api("POST", "/api/reel/auto", { target: value === "all" ? null : Number(value) });
     await refresh(true);
@@ -1184,6 +1224,9 @@ function wire() {
     if (!li) return;
     const mv = e.target.closest("[data-move]");
     if (mv) return moveInReel(li.dataset.clip, +mv.dataset.move);
+    const act = e.target.closest("[data-reel]")?.dataset.reel;
+    if (act === "edit") return editClip(li.dataset.clip);
+    if (act === "remove") return removeFromReel(li.dataset.clip);
     stopReel();
     selectClip(li.dataset.clip, { play: true });
   });
@@ -1210,7 +1253,16 @@ function wire() {
   $("play-btn").addEventListener("click", () => { if (player.paused) player.play().catch(() => {}); else { player.pause(); stopReel(); } });
   $("new-clip-btn").addEventListener("click", newClipHere);
   $("export-btn").addEventListener("click", startExport);
-  $("auto-btn").addEventListener("click", autoFill);
+  $("auto-btn").addEventListener("click", () => autoFill());
+  $("add-all-btn").addEventListener("click", () => autoFill("all"));
+  $("reel-add-btn").addEventListener("click", newClipHere);
+  $("suggest-list").addEventListener("click", (e) => {
+    const li = e.target.closest(".suggest-item");
+    if (!li) return;
+    stopReel();
+    if (e.target.closest("[data-add]")) return patchClip(li.dataset.clip, { status: "kept" });
+    selectClip(li.dataset.clip, { play: true });
+  });
   try { $("auto-target").value = localStorage.getItem("wtg-auto-target") || "60"; } catch { /* private mode */ }
   $("auto-target").addEventListener("change", (e) => {
     try { localStorage.setItem("wtg-auto-target", e.target.value); } catch { /* private mode */ }
