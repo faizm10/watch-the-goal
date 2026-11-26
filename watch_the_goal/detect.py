@@ -19,10 +19,12 @@ from .signals import Signals
 
 STEP = 0.5  # seconds per sample on the common analysis grid
 BASELINE_WINDOW = 60.0  # seconds of context for "normal" levels
-PRE_ROLL = 12.0  # default buildup kept before the moment
-MAX_PRE_ROLL = 20.0  # a move that is still in full flow at the cut may pull the start back this far
+MIN_CLIP = 5.0  # a suggested clip is at least this long...
+MAX_CLIP = 15.0  # ...and at most this long, so a reel is a run of short moments
+PRE_ROLL = 10.0  # default buildup kept before the moment
+POST_ROLL = 4.0  # default time kept after the moment (more for a long reaction, within MAX_CLIP)
+MAX_PRE_ROLL = MAX_CLIP - POST_ROLL  # a move that is still in full flow at the cut may pull the start back this far
 SURGE = 1.3  # whole-frame motion above this multiple of typical counts as play in full flow
-POST_ROLL = 5.0  # default time kept after the moment (up to twice this for a long reaction)
 MERGE_GAP = 1.0  # suggestions closer than this are the same moment
 CLUSTER_WINDOW = 6.0  # signals this close together describe one moment
 
@@ -288,12 +290,19 @@ def reason_kind(reason: str) -> str:
 
 
 def merge_overlapping(moments: list[Moment], gap: float = MERGE_GAP) -> list[Moment]:
-    """Combine moments whose windows overlap (or nearly touch) into one."""
+    """Combine moments whose windows overlap (or nearly touch) into one.
+
+    A combined clip stays within MAX_CLIP: when the later moment runs on too
+    far, it becomes its own clip starting where the earlier one ends."""
     merged: list[Moment] = []
     for m in sorted(moments, key=lambda m: (m.start, m.end)):
         if merged and m.start <= merged[-1].end + gap:
             cur = merged[-1]
-            cur.end = max(cur.end, m.end)
+            if m.end - cur.start > MAX_CLIP and m.end - cur.end >= MIN_CLIP:
+                merged.append(Moment(max(m.anchor, cur.end), max(m.start, cur.end), m.end,
+                                     list(m.reasons), list(m.kinds), m.strength, m.rank))
+                continue
+            cur.end = min(max(cur.end, m.end), cur.start + MAX_CLIP)
             cur.anchor = min(cur.anchor, m.anchor)
             cur.strength = max(cur.strength, m.strength)
             for r in m.reasons:
@@ -317,6 +326,18 @@ def clamp_window(start: float, end: float, duration: float, min_len: float = 1.0
     start = max(0.0, min(start, duration - min_len))
     end = min(duration, max(end, start + min_len))
     return round(start, 3), round(end, 3)
+
+
+def fit_window(start: float, end: float, anchor: float, duration: float,
+               min_len: float = MIN_CLIP, max_len: float = MAX_CLIP) -> tuple[float, float]:
+    """Clamp a clip around its moment to between ``min_len`` and ``max_len``
+    seconds. When it is too long, buildup past two thirds of the clip goes
+    first, then the reaction."""
+    anchor = min(max(anchor, start), end)
+    if end - start > max_len:
+        after = min(end - anchor, max_len - min(anchor - start, max_len * 2 / 3))
+        start, end = anchor - (max_len - after), anchor + after
+    return clamp_window(start, end, duration, min_len)
 
 
 def lead_in(motion: np.ndarray | None, anchor: float, pre_roll: float, max_pre_roll: float = MAX_PRE_ROLL) -> float:
@@ -483,7 +504,7 @@ def candidate_moments(
         # Keep the reaction too, but don't let a long celebration swamp the reel.
         last = max(max(e.t, e.end or e.t) for e in cluster)
         tail = min(max(anchor + post_roll, last + 1.0), anchor + 2 * post_roll)
-        start, end = clamp_window(lead_in(smooth, anchor, pre_roll), tail, sig.duration)
+        start, end = fit_window(lead_in(smooth, anchor, pre_roll), tail, anchor, sig.duration)
         start, end = max(start, half[0]), min(end, half[1])
         moments.append(Moment(anchor, start, end, reasons, kinds, strength))
     return sorted(moments, key=lambda m: -m.strength)
@@ -546,9 +567,12 @@ def apply_player_evidence(moments: list[Moment], evidence: list, post_roll: floa
             m.strength += 1.0 + min(1.0, (ev.near_goal_peak - ev.near_goal_typical) / 4)
             if "players" not in m.kinds:
                 m.kinds.append("players")
-            # Make sure the clip runs past the goalmouth action it found.
+            # Make sure the clip runs past the goalmouth action it found,
+            # giving up buildup if that's what keeps it short.
             if ev.near_goal_t is not None and ev.near_goal_t + post_roll / 2 > m.end:
-                m.end = round(min(duration or float("inf"), ev.near_goal_t + post_roll / 2), 3)
+                limit = duration or float("inf")
+                m.start, m.end = fit_window(m.start, min(limit, ev.near_goal_t + post_roll / 2),
+                                            ev.near_goal_t, limit)
         elif ev.bunch_peak >= BUNCH_MIN and ev.bunch_peak >= ev.bunch_typical + BUNCH_EXTRA:
             m.reasons.append(f"{ev.bunch_peak} players bunched together (usually {round(ev.bunch_typical)})")
             m.strength += 0.5 + min(1.0, (ev.bunch_peak - ev.bunch_typical) / 6)

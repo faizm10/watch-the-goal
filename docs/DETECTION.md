@@ -69,12 +69,16 @@ park are each judged against themselves.
    otherwise half a second before the loudest reaction.
 4. With goal boxes marked, noise that has neither goal-box motion nor a
    stoppage after it is dropped. In testing, that is usually an argument.
-5. The clip runs from **12 s before** the moment, to keep the turnover and the
-   assist, to 5 to 10 s after it, depending on how long the reaction lasts.
-   If play is still surging at the 12 s mark (smoothed motion at least 1.3×
+5. The clip runs from **10 s before** the moment, to keep the turnover and the
+   assist, to 4 s or more after it, depending on how long the reaction lasts.
+   If play is still surging at the 10 s mark (smoothed motion at least 1.3×
    the recording's median), the start walks back to where the surge began,
-   at most 20 s before the moment. A cut in the middle of a counterattack is
-   the most common way a highlight loses its buildup.
+   at most 11 s before the moment. A cut in the middle of a counterattack is
+   the most common way a highlight loses its buildup. Every suggested clip
+   is **5 to 15 s** long, so a reel is a run of short moments: past 15 s the
+   reaction is cut first, then buildup beyond 10 s. Two overlapping moments
+   merge into one clip only if it stays within 15 s; otherwise the later one
+   becomes its own clip, starting where the first ends.
 6. Candidates are ordered by strength (how many kinds of evidence agree, and
    how strongly). With a player detector, the strongest 3× as many as will be
    kept are re-checked (section 4).
@@ -111,7 +115,8 @@ Then:
 
 - "N players near the left goal (usually M)" is added when the peak is at
   least 2 and at least 2 above usual. It strengthens the moment and stretches
-  the clip to end at least half a post-roll after that frame.
+  the clip to end at least half a post-roll after that frame (giving up
+  buildup if needed to stay within 15 s).
 - Otherwise "N players bunched together (usually M)" is added when the peak
   is at least 4 and at least 3 above usual.
 - If the lens was blocked, "motion near the marked goal" is withdrawn; a
@@ -139,7 +144,7 @@ only: the endpoint must be a loopback address.
 - **Effect:** suggestions are re-ranked (likely goals first, then saves and
   near misses, then unreviewed or uncertain, then "other"); the verdict shows
   as an extra reason; where the proposed start and end make the clip
-  *longer*, they become a **suggested trim** you apply with one click. The
+  *longer*, up to 15 s, they become a **suggested trim** you apply with one click. The
   AI can add buildup or aftermath but never cut into the detector's clip: in
   testing its trims cut the buildup or the reaction as often as they added to
   them. Clips you've kept, skipped or trimmed are never

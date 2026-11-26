@@ -110,8 +110,8 @@ one click) or to turn on AI review by a vision model you run locally with
 FFmpeg reads each recording once and measures loudness and motion. A moment is
 suggested when it hears sustained crowd noise, sees movement in a marked goal,
 sees play stop after a burst of action, or, on an auto-panning camera like
-Veo, sees the camera follow play to one end. Each clip starts about 12 s early
-to keep the buildup.
+Veo, sees the camera follow play to one end. Each clip starts about 10 s early
+to keep the buildup, and runs 5 to 15 s.
 
 Real-world recall is still unmeasured, so expect to add some clips yourself.
 See [docs/DETECTION.md](docs/DETECTION.md) for the details and

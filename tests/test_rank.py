@@ -24,7 +24,7 @@ def make_signals(duration, cheers):
 
 
 def moment(anchor, kinds, reasons, strength):
-    return Moment(anchor, anchor - 12, anchor + 5, list(reasons), list(kinds), strength)
+    return Moment(anchor, anchor - 8, anchor + 4, list(reasons), list(kinds), strength)
 
 
 def test_players_near_goal_add_a_reason_and_lift_the_rank():
@@ -46,6 +46,7 @@ def test_finish_found_by_players_stays_inside_the_clip():
     ev = PlayerEvidence(near_goal_peak=4, near_goal_t=106.0, near_goal_label="right goal", near_goal_typical=0)
     (out,) = detect.apply_player_evidence([m], [ev], post_roll=5.0, duration=200)
     assert out.end >= 106.0 + 2.5
+    assert out.start <= 100 and out.end - out.start <= detect.MAX_CLIP  # still a short clip
 
 
 def test_someone_at_the_lens_cancels_goal_box_motion():
@@ -87,14 +88,14 @@ def test_merged_moments_keep_one_reason_per_kind_of_player_evidence():
 def test_lead_in_pulls_back_when_play_is_in_full_flow():
     n = 200  # 100 s at 0.5 s per sample
     motion = np.full(n, 1.0)
-    motion[int(40 / detect.STEP):int(70 / detect.STEP)] = 3.0  # a surge from 40 s to 70 s
-    # Moment at 60 s: the 12 s cut (48 s) lands mid-surge, so start where it began, within 20 s.
-    assert detect.lead_in(motion, 60.0, 12.0) == 40.0
-    # Moment at 80 s: the cut (68 s) is mid-surge, but the surge began 40 s earlier; stop at 20 s.
-    assert detect.lead_in(motion, 80.0, 12.0) == 60.0
+    motion[int(49.5 / detect.STEP):int(70 / detect.STEP)] = 3.0  # a surge from 49.5 s to 70 s
+    # Moment at 60 s: the 10 s cut (50 s) lands mid-surge, so start where it began, within 11 s.
+    assert detect.lead_in(motion, 60.0, 10.0) == 49.5
+    # Moment at 66 s: the cut (56 s) is mid-surge, but the surge began 16.5 s earlier; stop at 11 s.
+    assert detect.lead_in(motion, 66.0, 10.0) == 55.0
     # Quiet play at the cut: the normal pre-roll.
-    assert detect.lead_in(motion, 30.0, 12.0) == 18.0
-    assert detect.lead_in(None, 30.0, 12.0) == 18.0
+    assert detect.lead_in(motion, 30.0, 10.0) == 20.0
+    assert detect.lead_in(None, 30.0, 10.0) == 20.0
 
 
 def test_find_moments_still_ranks_and_caps():
