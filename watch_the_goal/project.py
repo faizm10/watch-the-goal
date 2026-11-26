@@ -20,7 +20,7 @@ import time
 import uuid
 from pathlib import Path
 
-from .detect import POST_ROLL, PRE_ROLL, Moment, clamp_window, merge_overlapping
+from .detect import MAX_CLIP, POST_ROLL, PRE_ROLL, Moment, clamp_window, fit_window, merge_overlapping
 from .media import MediaInfo
 from .review import DEFAULTS as REVIEW_DEFAULTS
 
@@ -69,7 +69,8 @@ class Project:
         self.order = [cid for cid in data.get("order", []) if cid in self.clips]
         self.exports = data.get("exports", [])
         saved = data.get("settings", {})
-        self.settings.update({k: v for k, v in saved.items() if k != "ai_review"})
+        # Pre/post roll aren't user settings; older saves carry the old, longer defaults.
+        self.settings.update({k: v for k, v in saved.items() if k not in ("ai_review", "pre_roll", "post_roll")})
         # Projects from before AI review existed get its defaults (off).
         self.settings["ai_review"] = {**REVIEW_DEFAULTS, **(saved.get("ai_review") or {})}
         # Work that was interrupted by a restart is no longer running.
@@ -79,6 +80,12 @@ class Project:
             s.setdefault("play", None)  # projects from before match trimming existed
             if s.get("analysis", {}).get("status") == "running":
                 s["analysis"] = {"status": "interrupted", "message": "Analysis was interrupted. Run it again."}
+        # Suggestions from before clips were capped at MAX_CLIP, unless the user trimmed them.
+        durations = {s["id"]: s["info"]["duration"] for s in self.sources}
+        for c in self.clips.values():
+            if (c["origin"] == "detected" and not c["edited"] and c.get("anchor") is not None
+                    and c["end"] - c["start"] > MAX_CLIP and c["source_id"] in durations):
+                c["start"], c["end"] = fit_window(c["start"], c["end"], c["anchor"], durations[c["source_id"]])
 
     def save(self) -> None:
         with self.lock:

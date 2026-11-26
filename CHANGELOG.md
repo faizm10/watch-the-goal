@@ -6,6 +6,11 @@ All notable changes to Watch the Goal are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Suggested clips are 5 to 15 s long: about 10 s of buildup and 4 s of
+  reaction, instead of 17 to 30 s. Untrimmed suggestions in existing projects
+  are shortened when the project opens; clips you trimmed yourself are kept.
+
 ## [0.1.0] - 2026-11-25
 
 The first release.

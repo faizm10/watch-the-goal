@@ -25,6 +25,8 @@ from dataclasses import dataclass
 from typing import Callable
 from urllib.parse import urlparse
 
+from .detect import fit_window
+
 LABELS = ("likely_goal", "save", "near_miss", "other", "uncertain")
 LABEL_TEXT = {"likely_goal": "likely goal", "save": "save", "near_miss": "near miss",
               "other": "not a highlight", "uncertain": "uncertain"}
@@ -369,8 +371,10 @@ def widen(clip: dict, verdict: dict) -> tuple[float, float]:
     In benchmarks the reviewer's trims cut into the buildup or the reaction as
     often as they extended them, and keeping both is the point of the app. So
     the detector's clip is the floor: the AI can add buildup or aftermath,
-    never remove it."""
-    return min(clip["start"], verdict["start"]), max(clip["end"], verdict["end"])
+    never remove it, though the result still fits in a short reel clip."""
+    anchor = clip["anchor"] if clip.get("anchor") is not None else (clip["start"] + clip["end"]) / 2
+    start, end = fit_window(min(clip["start"], verdict["start"]), max(clip["end"], verdict["end"]), anchor, float("inf"))
+    return min(start, clip["start"]), max(end, clip["end"])
 
 
 def _apply(project, clip_id: str, record: dict) -> None:

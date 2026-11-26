@@ -107,9 +107,9 @@ class FakeClient:
 def project(tmp_path, media):
     p = Project(tmp_path / "ws")
     src = p.add_source(probe(media["long"]), "long.mp4")
-    moments = [Moment(30, 18, 35, ["crowd noise"], ["audio"], 3, rank=2),
-               Moment(70, 58, 75, ["crowd noise"], ["audio"], 5, rank=1),
-               Moment(110, 98, 115, ["crowd noise"], ["audio"], 2, rank=3)]
+    moments = [Moment(30, 22, 34, ["crowd noise"], ["audio"], 3, rank=2),
+               Moment(70, 62, 74, ["crowd noise"], ["audio"], 5, rank=1),
+               Moment(110, 102, 114, ["crowd noise"], ["audio"], 2, rank=3)]
     p.apply_detection(src["id"], moments)
     return p, src
 
@@ -132,9 +132,11 @@ def test_review_labels_reranks_and_proposes_trims(project):
     assert [c[a]["rank"] for a in (30, 110, 70)] == [1, 2, 3]  # goal, near miss, then "other"
     assert c[30]["detector_rank"] == 2
     assert c[30]["review"]["label"] == "likely_goal" and c[30]["review"]["window"] == [10.0, 38.0]
-    assert c[30]["suggested_trim"]["start"] == 12 and c[30]["suggested_trim"]["source"] == "ai"
+    # The AI's 12-36 s is widened only as far as a reel clip may run.
+    assert (c[30]["suggested_trim"]["start"], c[30]["suggested_trim"]["end"]) == (20, 35)
+    assert c[30]["suggested_trim"]["source"] == "ai"
     # Proposals only: the clips themselves are unchanged.
-    assert (c[30]["start"], c[30]["end"], c[30]["status"]) == (18, 35, "candidate")
+    assert (c[30]["start"], c[30]["end"], c[30]["status"]) == (22, 34, "candidate")
     assert all(n == 4 for _, n in client.prompts)
     assert p.source(src["id"])["review"]["status"] == "done"
 
@@ -143,13 +145,13 @@ def test_review_skips_clips_the_user_has_acted_on(project):
     p, src = project
     c = clips_by_anchor(p)
     p.update_clip(c[70]["id"], status="kept")
-    p.update_clip(c[110]["id"], start=97)
+    p.update_clip(c[110]["id"], start=99)
     client = FakeClient({10: {"label": "save", "start": 12, "end": 30, "reason": "keeper dives"}})
     summary = review.review_source(p, src["id"], {}, client=client)
     assert summary["reviewed"] == 1 and len(client.prompts) == 1
     c = clips_by_anchor(p)
     assert c[70]["review"] is None and c[110]["review"] is None
-    assert (c[110]["start"], c[110]["end"]) == (97, 115)
+    assert (c[110]["start"], c[110]["end"]) == (99, 114)
 
 
 def test_an_edit_during_review_wins(project):
@@ -189,7 +191,7 @@ def test_timeouts_and_bad_answers_keep_each_suggestion(project):
     assert c[30]["review"]["status"] == "invalid" and c[110]["review"]["status"] == "invalid"
     assert all(x["suggested_trim"] is None for x in c.values())
     assert [c[a]["rank"] for a in (70, 30, 110)] == [1, 2, 3]  # detector order kept
-    assert (c[70]["start"], c[70]["end"]) == (58, 75)
+    assert (c[70]["start"], c[70]["end"]) == (62, 74)
 
 
 def test_server_dying_mid_review_stops_cleanly(project):
@@ -337,7 +339,7 @@ def test_ai_trims_only_extend_the_clip(project):
     """A verdict that would cut into the buildup or the reaction only widens."""
     p, src = project
     client = FakeClient({
-        10: {"label": "likely_goal", "start": 22, "end": 30, "reason": "shot at 29s"},     # inside 18-35
+        10: {"label": "likely_goal", "start": 24, "end": 30, "reason": "shot at 29s"},     # inside 22-34
         50: {"label": "near_miss", "start": 52, "end": 70, "reason": "shot wide at 68s"},  # earlier start, cuts end
         90: {"label": "other", "start": 100, "end": 112, "reason": "throw-in"},
     })
@@ -345,39 +347,42 @@ def test_ai_trims_only_extend_the_clip(project):
     c = clips_by_anchor(p)
     assert c[30]["suggested_trim"] is None  # nothing to add
     assert c[70]["review"]["start"] == 52  # the verdict itself is kept as given
-    assert (c[70]["suggested_trim"]["start"], c[70]["suggested_trim"]["end"]) == (52, c[70]["end"])
-    assert review.widen({"start": 18, "end": 35}, {"start": 12, "end": 30}) == (12, 35)
+    assert (c[70]["suggested_trim"]["start"], c[70]["suggested_trim"]["end"]) == (59, c[70]["end"])
+    assert review.widen({"start": 22, "end": 34, "anchor": 30}, {"start": 20, "end": 30}) == (20, 34)
+    # Never past MAX_CLIP, and never cutting a clip that was already longer.
+    assert review.widen({"start": 22, "end": 34, "anchor": 30}, {"start": 5, "end": 50}) == (20, 35)
+    assert review.widen({"start": 10, "end": 30, "anchor": 25}, {"start": 0, "end": 40}) == (10, 30)
 
 
 @pytest.mark.parametrize("request_name,answer,expected", [
-    ("buildup", (49, 73), (49, 75)),
-    ("sooner", (60, 72), (58, 72)),
+    ("buildup", (53, 73), (53, 74)),
+    ("sooner", (64, 72), (62, 72)),
 ])
 def test_context_proposal_preserves_other_edge_and_requires_apply(project, monkeypatch, request_name, answer, expected):
     p, _ = project
     p.settings["ai_review"]["enabled"] = True
     clip = clips_by_anchor(p)[70]
-    client = FakeClient({43: {"label": "likely_goal", "start": answer[0], "end": answer[1], "reason": "pass"},
-                         58: {"label": "likely_goal", "start": answer[0], "end": answer[1], "reason": "finish"}})
+    client = FakeClient({47: {"label": "likely_goal", "start": answer[0], "end": answer[1], "reason": "pass"},
+                         62: {"label": "likely_goal", "start": answer[0], "end": answer[1], "reason": "finish"}})
     monkeypatch.setattr(review, "OllamaClient", lambda *args: client)
     result = review.propose_edit(p, clip["id"], request_name)
-    assert (clip["start"], clip["end"]) == (58, 75)
+    assert (clip["start"], clip["end"]) == (62, 74)
     assert (result["start"], result["end"]) == expected
     p.update_clip(clip["id"], **result)
     p.undo()
-    assert (clip["start"], clip["end"]) == (58, 75)
-    p.update_clip(clip["id"], start=57)
+    assert (clip["start"], clip["end"]) == (62, 74)
+    p.update_clip(clip["id"], start=61)
     with pytest.raises(ProjectError, match="changed"):
         p.update_clip(clip["id"], **result)
-    assert clip["start"] == 57
+    assert clip["start"] == 61
 
 
 def test_context_proposal_rejects_end_before_the_event(project, monkeypatch):
     p, _ = project
     p.settings["ai_review"]["enabled"] = True
-    client = FakeClient({58: {"label": "likely_goal", "start": 60, "end": 68, "reason": "too soon"}})
+    client = FakeClient({62: {"label": "likely_goal", "start": 64, "end": 68, "reason": "too soon"}})
     monkeypatch.setattr(review, "OllamaClient", lambda *args: client)
     clip = clips_by_anchor(p)[70]
     with pytest.raises(review.InvalidResponse, match="no usable change"):
         review.propose_edit(p, clip["id"], "sooner")
-    assert (clip["start"], clip["end"]) == (58, 75)
+    assert (clip["start"], clip["end"]) == (62, 74)
