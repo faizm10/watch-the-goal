@@ -1,5 +1,12 @@
 # Watch the Goal
 
+[![CI](https://github.com/faizm10/watch-the-goal/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/faizm10/watch-the-goal/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/faizm10/watch-the-goal?sort=semver)](https://github.com/faizm10/watch-the-goal/releases)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Runs locally](https://img.shields.io/badge/footage-stays%20local-2ea44f)](#captions-with-ai-optional)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
+
 Turn your Sunday pickup footage into one highlight reel, buildup included.
 
 Drop in a whole match, a few phone clips, or both. Watch the Goal suggests the
@@ -142,6 +149,13 @@ Tests build their own small videos with FFmpeg. CI also renders a synthetic
 demo match (`scripts/make_demo.py`, see [demo/README.md](demo/README.md)) and
 drives the real UI in a browser (`scripts/e2e_ui.py`). See
 [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Community
+
+- Found a bug or have an idea? [Open an issue](https://github.com/faizm10/watch-the-goal/issues/new/choose).
+- Security problem? Please report it privately, see [SECURITY.md](SECURITY.md).
+- What changed in each release: [CHANGELOG.md](CHANGELOG.md).
+- Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 

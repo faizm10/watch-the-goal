@@ -13,6 +13,9 @@ the Python packages.
 | [pytest](https://pytest.org) | 9.2.0 | MIT | tests (`dev` group) |
 | [playwright](https://playwright.dev/python/) | 1.65.2 | Apache-2.0 | browser tests, `scripts/e2e_ui.py` (`e2e` group, optional) |
 | [greenlet](https://github.com/python-greenlet/greenlet) | 3.5.6 | MIT AND PSF-2.0 | dependency of playwright |
+| [anthropic](https://github.com/anthropics/anthropic-sdk-python) | 2.14.0 | Apache-2.0 | optional caption writer with Claude (`ai` extra) |
+| [openai](https://github.com/openai/openai-python) | 3.59.0 | Apache-2.0 | optional caption writer with OpenAI (`ai` extra) |
+| [google-genai](https://github.com/googleapis/python-genai) | 3.6.1 | Apache-2.0 | optional caption writer with Gemini (`ai` extra) |
 | [supervision](https://github.com/roboflow/supervision) | 0.26.1 | MIT | ByteTrack, **evaluation only** (`scripts/eval_tracking.py` runs it in a throwaway `uv run --no-project --with` environment); not a dependency of the app |
 
 FFmpeg/ffprobe are required but installed separately by the user and not

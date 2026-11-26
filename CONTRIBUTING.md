@@ -27,7 +27,8 @@ Set `WTG_DEBUG=1` to log HTTP requests and full tracebacks from background jobs.
 | `watch_the_goal/vision/` | OpenCV frame sampling, the `none`/`yolox`/`rfdetr-nano` person detectors, player counts near goals, model downloads, overlays |
 | `watch_the_goal/review.py` | opt-in AI review through a local Ollama vision model: windows, validation, reranking, suggested trims, fallbacks |
 | `watch_the_goal/project.py` | sources, clips, reel order; saved as `project.json` |
-| `watch_the_goal/export.py` | per-clip normalisation (rotation, size, fps, audio) and concat |
+| `watch_the_goal/export.py` | per-clip normalisation (rotation, size, fps, audio), recap captions and fades, and concat |
+| `watch_the_goal/writer.py` | reel titles, captions and end cards from tags and detection, or optionally from Claude, OpenAI or Gemini (text only, `ai` extra) |
 | `watch_the_goal/app.py` | services shared by the server and the CLI; background jobs |
 | `watch_the_goal/server.py` | JSON API and static files, with Range support for `<video>` |
 | `watch_the_goal/static/` | the UI |
@@ -50,7 +51,8 @@ Set `WTG_DEBUG=1` to log HTTP requests and full tracebacks from background jobs.
   add a real recording to the docs or tests if everyone in it has cleared it
   for redistribution, and keep it out of the repo even then. Link to it instead.
 - **Keep it local.** No accounts, uploads, API keys, telemetry or GPU
-  requirements in the default path. Models are downloaded only when asked,
+  requirements in the default path. The optional caption writer may send
+  text, never footage, to a provider the user picks with their own key. Models are downloaded only when asked,
   from pinned revisions with checksums. AI review only talks to loopback
   addresses.
 - **Optional means optional.** Analysis must work with no model downloaded
