@@ -61,7 +61,10 @@ Look at a screenshot before choosing selectors. Assert on `/api/state`, not on t
 | Clip on the timeline | `.block[data-clip=ID]` |
 | Editor buttons | `[data-act=keep]`, `[data-act=skip]`, `[data-act=start-5]`, `[data-act=start+1]`, `[data-act=end+5]`, `[data-act=apply-trim]` |
 | Reasons, AI verdict | `#editor .reason`, `#editor .reason.ai`, `#editor .reason.ai.fail` |
-| Reel item, reorder | `.reel-item[data-clip=ID]`, `[data-move="-1"]`, `[data-move="1"]` |
+| Reel item, reorder | `#reel-list .reel-item[data-clip=ID]`, `[data-move="-1"]`, `[data-move="1"]` |
+| Reel item, edit / remove | `[data-reel="edit"]`, `[data-reel="remove"]` (back to a suggestion) |
+| Add a clip at the playhead | `#reel-add-btn` |
+| Suggestions not in the reel | `#suggest-list .suggest-item[data-clip=ID]`, its `[data-add]`; `#add-all-btn` |
 | Analysis settings | `#settings-btn`, `#detector-select`, `#review-enabled`, `#review-endpoint`, `#review-check`, `#settings-save` |
 | Export | `#layout-select`, `#export-btn`, `#export-status` |
 

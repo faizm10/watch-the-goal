@@ -100,6 +100,17 @@
         </select>
       </div>
       <ol id="reel-list" class="reel-list"></ol>
+      <div class="row">
+        <button id="reel-add-btn" class="btn small" disabled data-help="Add a 15 s clip ending 5 s after the playhead (N). Drag its edges in the editor to adjust.">+ Clip at playhead</button>
+      </div>
+      <section id="suggest-box" class="suggest-box" hidden>
+        <div class="row suggest-head">
+          <h3>Suggestions <span id="suggest-count" class="muted"></span></h3>
+          <span class="spacer"></span>
+          <button id="add-all-btn" class="btn small" data-help="Add every suggestion to the reel. One Undo puts them back.">Add all</button>
+        </div>
+        <ol id="suggest-list" class="reel-list"></ol>
+      </section>
       <div class="export-box">
         <div class="row"><label for="template-select" class="muted">Template</label>
           <select id="template-select"><option value="plain">Original footage</option><option value="recap">Match recap</option></select>

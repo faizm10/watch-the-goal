@@ -56,8 +56,11 @@ Without uv: `pip install .` then `watch-the-goal`.
    there. **Re-tune from my calls** then adjusts the detector to agree with you
    and re-ranks the suggestions.
 5. **Arrange.** Drag clips in the Reel panel, aim for 30–60 seconds, and press
-   **Preview reel**. **Auto-fill from suggestions** keeps the strongest ones
-   for you (one **Undo** reverts it).
+   **Preview reel**. Each clip has **✎** to trim it and **✕** to take it out.
+   Below the reel, **Suggestions** lists every moment not in it yet: **+** adds
+   one, **Add all** adds them all. **Auto-fill from suggestions** keeps the
+   strongest ones until the reel is about the length you pick (one **Undo**
+   reverts either).
 6. **Make it a recap** (optional). Choose **Match recap** to add an opening
    title, scoreboards, a caption on each clip (`GOAL · 47'`), fades between
    clips and an end card. **Write** drafts the words for you (see below).

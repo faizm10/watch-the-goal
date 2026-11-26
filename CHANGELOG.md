@@ -6,6 +6,14 @@ All notable changes to Watch the Goal are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Edit, remove and add clips from the Reel panel: **✎** opens a clip in the
+  editor, **✕** takes it out of the reel, and **+ Clip at playhead** adds one.
+- A **Suggestions** list under the reel shows every suggested moment not yet
+  in it, strongest first, with **+** to add one and **Add all** to add them
+  all. Auto-fill stops at the length you pick, so the rest are no longer
+  hidden.
+
 ### Changed
 - Suggested clips are 5 to 15 s long: about 10 s of buildup and 4 s of
   reaction, instead of 17 to 30 s. Untrimmed suggestions in existing projects

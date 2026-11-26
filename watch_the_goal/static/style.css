@@ -190,9 +190,17 @@ body.dragging .drop-hint { border-color: var(--accent); background: rgba(63, 209
 .reel-item .t { font-size: 12px; overflow: hidden; }
 .reel-item .t div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .reel-item .t .s { color: var(--muted); font-family: var(--mono); }
-.reel-item .mv { display: flex; flex-direction: column; }
-.reel-item .mv button { background: none; border: 0; color: var(--muted); cursor: pointer; padding: 0 4px; font-size: 11px; line-height: 1.3; }
-.reel-item .mv button:hover { color: var(--text); }
+.reel-item .ctl { display: grid; grid-template-columns: auto auto; }
+.reel-item .ctl button { background: none; border: 0; color: var(--muted); cursor: pointer; padding: 1px 4px; font-size: 11px; line-height: 1.4; border-radius: 4px; }
+.reel-item .ctl button:hover { color: var(--text); background: #283443; }
+.reel-item .ctl [data-reel] { font-size: 12px; }
+.reel-item .ctl [data-reel="remove"]:hover { color: var(--danger); }
+.suggest-item .add { width: 28px; justify-content: center; padding: 4px 0; font-size: 14px; }
+.suggest-box { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); padding-top: 12px; }
+.suggest-head h3 { margin: 0; font-size: 13px; font-weight: 600; }
+.suggest-head h3 .muted { font-weight: 400; }
+#suggest-list { max-height: 320px; overflow-y: auto; }
+.suggest-item .n { font-size: 11px; cursor: pointer; }
 .reel-empty { color: var(--muted); font-size: 13px; }
 .export-box { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
 .export-box select { flex: 1; }
