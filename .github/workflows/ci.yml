@@ -15,7 +15,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         python: ["3.10", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install FFmpeg (Ubuntu)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
@@ -35,7 +35,7 @@ jobs:
     name: demo footage + detection report
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - uses: astral-sh/setup-uv@v5
         with:
@@ -54,7 +54,7 @@ jobs:
     name: browser test of the UI on synthetic footage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - uses: astral-sh/setup-uv@v5
         with:
